@@ -64,10 +64,10 @@ die zeigt *wie* so etwas funktioniert.
 
 **Ziel:** Datenmodell des Spiels steht.
 
-- [ ] Board-Repräsentation wählen: 8×8 NumPy-Array (`+1`/`-1`/`0`) für Klarheit;
+- [x] Board-Repräsentation wählen: 8×8 NumPy-Array (`+1`/`-1`/`0`) für Klarheit;
       Bitboard-Optimierung später, wenn Speed nötig wird.
-- [ ] Startstellung, `current_player`, `to_string()` für Debug-Ausgabe.
-- [ ] Richtungs-Offsets (8 Richtungen) als Konstante.
+- [x] Startstellung, `current_player`, `to_string()` für Debug-Ausgabe.
+- [x] Richtungs-Offsets (8 Richtungen) als Konstante.
 
 **Fertig wenn:** Board lässt sich anlegen und lesbar ausgeben; Startstellung stimmt
 (4 Steine in der Mitte).
