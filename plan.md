@@ -76,10 +76,10 @@ die zeigt *wie* so etwas funktioniert.
 
 **Ziel:** Herzstück der Engine — korrekte legale Züge und Umdrehen.
 
-- [ ] `legal_moves(board, player)` → Liste gültiger Felder.
-- [ ] `apply_move(board, player, move)` → neues Board mit korrekt geflippten Steinen
+- [x] `legal_moves(board, player)` → Liste gültiger Felder.
+- [x] `apply_move(board, player, move)` → neues Board mit korrekt geflippten Steinen
       in allen 8 Richtungen.
-- [ ] Unveränderlichkeit beachten (kopieren, nicht in-place mutieren).
+- [x] Unveränderlichkeit beachten (kopieren, nicht in-place mutieren).
 
 **Fertig wenn:** Auf einer Handvoll manuell durchgerechneter Stellungen stimmen
 legale Züge und Flips exakt.
@@ -88,12 +88,12 @@ legale Züge und Flips exakt.
 
 **Ziel:** Die kniffligen Randfälle lösen.
 
-- [ ] Pass-Regel: hat ein Spieler keinen legalen Zug, muss er passen (Gegner wieder
+- [x] Pass-Regel: hat ein Spieler keinen legalen Zug, muss er passen (Gegner wieder
       dran). Nur wenn **beide** nicht ziehen können → Spielende.
-- [ ] `game_over(board)` + `winner(board)` (Steinmehrheit, inkl. Unentschieden).
-- [ ] Vollständige pytest-Suite für 1.2 + 1.3: Startzüge, Flips je Richtung,
+- [x] `game_over(board)` + `winner(board)` (Steinmehrheit, inkl. Unentschieden).
+- [x] Vollständige pytest-Suite für 1.2 + 1.3: Startzüge, Flips je Richtung,
       erzwungenes Pass, Spielende bei vollem Brett und bei beidseitigem Pass.
-- [ ] Property-Test: ein komplettes Random-Spiel läuft ohne Fehler bis zum Ende
+- [x] Property-Test: ein komplettes Random-Spiel läuft ohne Fehler bis zum Ende
       und Steinzahl bleibt konsistent.
 
 **Fertig wenn:** `pytest` grün, inkl. der Pass-/Game-Over-Fälle. **Ab hier wird die

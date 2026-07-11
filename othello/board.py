@@ -31,6 +31,12 @@ DIRECTIONS: tuple[tuple[int, int], ...] = (
 # Anzeige-Symbole für to_string().
 _SYMBOLS = {BLACK: "X", WHITE: "O", EMPTY: "."}
 
+# Sentinel für den Pass-Zug: ein Spieler ohne legalen Zug muss passen.
+PASS = "PASS"
+
+# Ein Zug ist entweder ein Feld (Zeile, Spalte) oder PASS.
+Move = "tuple[int, int] | str"
+
 
 def initial_board(size: int = 8) -> np.ndarray:
     """Erzeugt die Othello-Startstellung: vier Steine im Zentrum.
@@ -85,6 +91,116 @@ def disc_counts(board: np.ndarray) -> dict[int, int]:
     }
 
 
+def _flips_in_direction(
+    board: np.ndarray, r: int, c: int, player: int, dr: int, dc: int
+) -> list[tuple[int, int]]:
+    """Steine, die ein Zug auf (r, c) in Richtung (dr, dc) umdrehen würde.
+
+    Läuft vom Feld aus in eine Richtung: sammelt eine ununterbrochene Kette
+    gegnerischer Steine, die von einem eigenen Stein abgeschlossen wird. Bricht
+    die Kette an einem leeren Feld oder am Rand ab, wird nichts umgedreht.
+    """
+    size = board.shape[0]
+    opp = -player
+    line: list[tuple[int, int]] = []
+    rr, cc = r + dr, c + dc
+    while 0 <= rr < size and 0 <= cc < size and board[rr, cc] == opp:
+        line.append((rr, cc))
+        rr += dr
+        cc += dc
+    # Nur gültig, wenn nach >=1 gegnerischem Stein ein eigener Stein folgt.
+    if line and 0 <= rr < size and 0 <= cc < size and board[rr, cc] == player:
+        return line
+    return []
+
+
+def flips_for_move(
+    board: np.ndarray, player: int, move: tuple[int, int]
+) -> list[tuple[int, int]]:
+    """Alle Steine, die ``move`` in allen 8 Richtungen umdrehen würde.
+
+    Leere Liste, wenn der Zug nichts umdreht (also illegal ist).
+    """
+    r, c = move
+    if board[r, c] != EMPTY:
+        return []
+    flips: list[tuple[int, int]] = []
+    for dr, dc in DIRECTIONS:
+        flips.extend(_flips_in_direction(board, r, c, player, dr, dc))
+    return flips
+
+
+def is_legal_move(board: np.ndarray, player: int, move: tuple[int, int]) -> bool:
+    """True, wenn ``move`` für ``player`` mindestens einen Stein umdreht."""
+    r, c = move
+    if not (0 <= r < board.shape[0] and 0 <= c < board.shape[0]):
+        return False
+    return bool(flips_for_move(board, player, move))
+
+
+def legal_moves(board: np.ndarray, player: int) -> list[tuple[int, int]]:
+    """Alle legalen Felder für ``player`` (ohne Pass).
+
+    Ein Feld ist legal, wenn es leer ist und in mindestens einer Richtung
+    gegnerische Steine einklammert.
+    """
+    size = board.shape[0]
+    moves: list[tuple[int, int]] = []
+    for r in range(size):
+        for c in range(size):
+            if board[r, c] == EMPTY and flips_for_move(board, player, (r, c)):
+                moves.append((r, c))
+    return moves
+
+
+def has_legal_move(board: np.ndarray, player: int) -> bool:
+    """True, wenn ``player`` irgendein legales Feld hat (schneller Abbruch)."""
+    size = board.shape[0]
+    for r in range(size):
+        for c in range(size):
+            if board[r, c] == EMPTY and flips_for_move(board, player, (r, c)):
+                return True
+    return False
+
+
+def apply_move(
+    board: np.ndarray, player: int, move: tuple[int, int]
+) -> np.ndarray:
+    """Wendet ``move`` an und gibt ein **neues** Board zurück (nicht in-place).
+
+    Setzt den Stein auf das Feld und dreht alle eingeklammerten gegnerischen
+    Steine um. Wirft ``ValueError`` bei einem illegalen Zug.
+    """
+    flips = flips_for_move(board, player, move)
+    if not flips:
+        raise ValueError(f"Illegaler Zug {move} für Spieler {player}")
+    new_board = board.copy()
+    r, c = move
+    new_board[r, c] = player
+    for fr, fc in flips:
+        new_board[fr, fc] = player
+    return new_board
+
+
+def game_over(board: np.ndarray) -> bool:
+    """Spiel vorbei, wenn **kein** Spieler mehr ziehen kann."""
+    return not has_legal_move(board, BLACK) and not has_legal_move(board, WHITE)
+
+
+def winner(board: np.ndarray) -> int:
+    """Gewinner nach Steinmehrheit: BLACK, WHITE oder EMPTY (Unentschieden).
+
+    Nur bei Spielende sinnvoll interpretierbar; die Funktion selbst zählt
+    lediglich die Steine.
+    """
+    counts = disc_counts(board)
+    if counts[BLACK] > counts[WHITE]:
+        return BLACK
+    if counts[WHITE] > counts[BLACK]:
+        return WHITE
+    return EMPTY
+
+
 @dataclass
 class GameState:
     """Vollständiger Spielzustand: Brett + wer am Zug ist.
@@ -107,6 +223,40 @@ class GameState:
     @property
     def size(self) -> int:
         return self.board.shape[0]
+
+    def legal_moves(self):
+        """Optionen für den aktuellen Spieler.
+
+        - Reale Felder, wenn welche existieren.
+        - ``[PASS]``, wenn der Spieler nicht ziehen kann, aber der Gegner schon
+          (erzwungenes Passen).
+        - ``[]``, wenn das Spiel vorbei ist (keiner kann ziehen).
+        """
+        moves = legal_moves(self.board, self.current_player)
+        if moves:
+            return moves
+        if has_legal_move(self.board, opponent(self.current_player)):
+            return [PASS]
+        return []
+
+    def is_terminal(self) -> bool:
+        return game_over(self.board)
+
+    def apply(self, move) -> "GameState":
+        """Führt ``move`` aus und gibt einen **neuen** Zustand zurück.
+
+        Bei PASS wechselt nur der Spieler (nur erlaubt, wenn keine realen Züge
+        existieren). Ansonsten wird das Board aktualisiert und gewechselt.
+        """
+        if move == PASS:
+            if legal_moves(self.board, self.current_player):
+                raise ValueError("PASS unzulässig: es gibt legale Züge")
+            return GameState(board=self.board, current_player=opponent(self.current_player))
+        new_board = apply_move(self.board, self.current_player, move)
+        return GameState(board=new_board, current_player=opponent(self.current_player))
+
+    def winner(self) -> int:
+        return winner(self.board)
 
     def to_string(self) -> str:
         return board_to_string(self.board, self.current_player)
