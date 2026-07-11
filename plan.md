@@ -117,9 +117,9 @@ Engine nicht mehr angefasst, ohne dass Tests grün bleiben.**
 
 **Ziel:** Reines UCT-MCTS mit Random-Rollouts — der Sanity-Check *vor* jedem ML.
 
-- [ ] `MCTSAgent`: Selection (UCB1), Expansion, Random-Rollout, Backprop.
-- [ ] Simulationsbudget pro Zug konfigurierbar.
-- [ ] Arena: MCTS schlägt Greedy klar.
+- [x] `MCTSAgent`: Selection (UCB1), Expansion, Random-Rollout, Backprop.
+- [x] Simulationsbudget pro Zug konfigurierbar.
+- [x] Arena: MCTS schlägt Greedy klar (150 Sims: 30:0 = 100 %).
 
 **Fertig wenn:** MCTS (z. B. 200 Sims/Zug) gewinnt deutlich gegen Greedy. Damit ist
 bewiesen, dass Engine + Suche korrekt zusammenspielen — komplett ohne ML-Unsicherheit.
@@ -272,6 +272,6 @@ Kandidat für „schlägt Hobbyspieler".
 ## Fortschritt
 
 - [x] Phase 0 – Setup
-- [ ] Phase 1 – Engine & Baselines (Meilenstein 1)
+- [x] Phase 1 – Engine & Baselines (Meilenstein 1)
 - [ ] Phase 2 – AlphaZero-Pipeline (Meilenstein 2)
 - [ ] Phase 3 – Frontend (Meilenstein 3)
