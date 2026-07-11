@@ -5,6 +5,14 @@ Selberspielen. Portfolio-Projekt. Ziel: ein Modell, das einen menschlichen
 Hobbyspieler zuverlässig schlägt — und eine saubere, nachvollziehbare Pipeline,
 die zeigt *wie* so etwas funktioniert.
 
+## Workflow (Zusammenarbeit)
+
+- **Claude committet nie selbst.** Ich (Claude) führe die Unterschritte eines
+  großen Schritts aus und gebe dann eine Zusammenfassung, was passiert ist.
+- **Arthur prüft und committet.** Du checkst gegen, committest selbst und sagst
+  entweder „weiter geht's" oder meldest dich mit Anmerkungen.
+- Erst nach deinem „OK" beginnt der nächste Schritt.
+
 ## Leitprinzipien
 
 - **Jede Phase = ein Feierabend (2–3 h)** mit klarem „Fertig wenn"-Kriterium.
@@ -31,9 +39,9 @@ die zeigt *wie* so etwas funktioniert.
 
 **Ziel:** Reproduzierbares Projektgerüst, alles läuft.
 
-- [ ] `venv` anlegen, `requirements.txt` (numpy, torch, pytest, fastapi, uvicorn).
-- [ ] CUDA prüfen: `torch.cuda.is_available()` → `True`, GPU-Name ausgeben.
-- [ ] Projektstruktur anlegen:
+- [x] `venv` anlegen, `requirements.txt` (numpy, torch, pytest, fastapi, uvicorn).
+- [x] CUDA prüfen: `torch.cuda.is_available()` → `True`, GPU-Name ausgeben.
+- [x] Projektstruktur anlegen:
   ```
   othello/        # Engine (reine Spiellogik, kein ML)
   agents/         # Bots: random, greedy, mcts, alphazero
@@ -43,8 +51,8 @@ die zeigt *wie* so etwas funktioniert.
   scripts/        # Einstiegspunkte (train.py, play.py, arena.py)
   config.py
   ```
-- [ ] `README.md` mit Kurzbeschreibung + Setup-Anleitung.
-- [ ] Git: `.gitignore` (venv, `__pycache__`, `*.pt`, Checkpoints, Logs).
+- [x] `README.md` mit Kurzbeschreibung + Setup-Anleitung.
+- [x] Git: `.gitignore` (venv, `__pycache__`, `*.pt`, Checkpoints, Logs).
 
 **Fertig wenn:** `pytest` läuft (0 Tests ok), CUDA wird erkannt, Struktur committed.
 
@@ -261,7 +269,7 @@ Kandidat für „schlägt Hobbyspieler".
 
 ## Fortschritt
 
-- [ ] Phase 0 – Setup
+- [x] Phase 0 – Setup
 - [ ] Phase 1 – Engine & Baselines (Meilenstein 1)
 - [ ] Phase 2 – AlphaZero-Pipeline (Meilenstein 2)
 - [ ] Phase 3 – Frontend (Meilenstein 3)

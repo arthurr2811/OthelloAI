@@ -1,0 +1,12 @@
+# Othello AI – dependencies
+#
+# PyTorch wird NICHT hier gepinnt, weil die RTX 5070 Ti (Blackwell, sm_120)
+# ein CUDA-12.8-Wheel braucht. Install separat:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+# (siehe README).
+
+numpy>=2.0
+pytest>=8.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pyyaml>=6.0

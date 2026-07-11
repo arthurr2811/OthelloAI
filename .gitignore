@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Othello AI (projektspezifisch) ---
+# Modell-Checkpoints und Trainingsartefakte
+*.pt
+*.pth
+checkpoints/
+runs/
+logs/
+
+# PyCharm / IDE
+.idea/
