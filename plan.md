@@ -199,11 +199,17 @@ Stellung eine Visit-Count-Verteilung.
 
 **Ziel:** Alles zu einem Loop verbinden und auf 6×6 nachweislich lernen.
 
-- [ ] `train.py`: Loop aus Self-Play → Train → Evaluate → (Gate) über N Iterationen.
-- [ ] Zentrale Config (Sims, Iterationen, Buffer-Größe, LR, Batchgröße …).
-- [ ] Resume aus Checkpoint, sauberes Logging pro Iteration.
-- [ ] 6×6-Lauf starten und beobachten: Stärke gegen Baselines soll über die
-      Iterationen steigen.
+- [x] `scripts/train.py`: Loop aus Self-Play → Train → Evaluate → (Gate) über N
+      Iterationen (`az/pipeline.py`, CLI mit `--smoke`-Wiring-Check).
+- [x] Zentrale Config (`RunConfig`: Sims, Iterationen, Buffer-Größe, LR,
+      Batchgröße … bündelt alle Sub-Configs).
+- [x] Resume aus Checkpoint (`--resume best.pt`), Logging pro Iteration
+      (`logs/iterations.csv` + `loss_iter_XXX.csv`).
+- [ ] **>>> NÄCHSTER SCHRITT (manuell, Arthur): 6×6-Lauf starten und beobachten.**
+      `python scripts/train.py` (Defaults: 6×6, 40 Iterationen). Stärke gegen
+      Baselines soll über die Iterationen steigen. Vorbereitung + Wiring stehen und
+      sind getestet (`--smoke` läuft grün auf GPU); nur der eigentliche,
+      langlaufende Trainingslauf fehlt noch.
 
 **Fertig wenn:** Auf 6×6 schlägt das trainierte Modell die Baselines klar und wird
 über die Iterationen messbar stärker. **Damit ist die Pipeline validiert.**

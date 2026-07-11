@@ -79,9 +79,37 @@ class EvalConfig:
     temperature_moves: int = 10
 
 
+@dataclass(frozen=True)
+class RunConfig:
+    """Zentrale Config für den ganzen AlphaZero-Loop (Schritt 2.6).
+
+    Bündelt Brettgröße, Loop-Umfang und alle Sub-Configs an *einer* Stelle, damit
+    ein Lauf reproduzierbar über ein einziges Objekt beschrieben ist. Defaults
+    zielen auf den 6x6-Durchstich (klein, konvergiert in Stunden).
+    """
+
+    board_size: int = 6
+    n_iterations: int = 40
+    games_per_iteration: int = 20        # Self-Play-Partien pro Iteration
+    train_steps_per_iteration: int = 200  # Gradientenschritte pro Iteration
+    baseline_games: int = 20             # Partien gegen Greedy für die Stärke-Kurve
+    seed: int = 0
+
+    checkpoint_dir: str = "checkpoints"
+    log_dir: str = "logs"
+
+    # Sub-Configs (unveränderlich, daher als Default-Instanzen teilbar).
+    net: NetConfig = NetConfig()
+    mcts: MCTSConfig = MCTSConfig()
+    selfplay: SelfPlayConfig = SelfPlayConfig()
+    train: TrainConfig = TrainConfig()
+    eval: EvalConfig = EvalConfig()
+
+
 DEFAULT_GAME = GameConfig()
 DEFAULT_NET = NetConfig()
 DEFAULT_MCTS = MCTSConfig()
 DEFAULT_SELFPLAY = SelfPlayConfig()
 DEFAULT_TRAIN = TrainConfig()
 DEFAULT_EVAL = EvalConfig()
+DEFAULT_RUN = RunConfig()
