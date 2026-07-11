@@ -27,6 +27,13 @@ def play_game(black_agent: Agent, white_agent: Agent, size: int = 8) -> int:
         agent = black_agent if state.current_player == BLACK else white_agent
         move = agent.select_move(state)
         state = state.apply(move)
+    else:
+        # Schleife lief ohne `break` durch -> nicht-terminal nach max_plies.
+        raise RuntimeError(
+            f"ACHTUNG: {max_plies} Halbzüge überschritten ohne Spielende (Endlosschleife)!"
+            f"Aktueller Spieler: {state.current_player}, "
+            f"Optionen: {state.legal_moves()}\n{state.to_string()}"
+        )
     return state.winner()
 
 
