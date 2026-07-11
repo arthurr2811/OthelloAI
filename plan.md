@@ -254,7 +254,7 @@ Kandidat für „schlägt Hobbyspieler".
 
 - [ ] Schwierigkeitsstufen über MCTS-Sim-Budget.
 - [ ] Selbst (und Freunde) gegen die KI spielen → hält sie „schlägt Hobbyspieler"?
-- [ ] README mit Screenshots, Stärke-Kurven, kurzer Architektur-Erklärung.
+- [ ] README rund?
 
 **Fertig wenn:** Rundes, im Browser spielbares Projekt mit dokumentierten Ergebnissen.
 
@@ -263,6 +263,13 @@ Kandidat für „schlägt Hobbyspieler".
 
 ---
 
+### Schritt 4 Cleanup
+
+**Ziel:** Sauberer Code
+
+- [ ] Code aufgeräumt, nur für Zwischenschritte nötigen Code entfernt.
+- [ ] Readme ist rund.
+- [ ] Deliverable: Gut DOkumentiertes Projekt, das aufbau der KI zeigt und erklärt. Fertig trainiertes Modell, dass menschliche Spieler zuverlässig schlagen kann.
 ## Bewusst später / außerhalb des Scopes
 
 - Hetzner-Deployment des fertigen Modells (eigene Aufgabe, wenn das Modell steht).

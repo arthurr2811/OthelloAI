@@ -251,9 +251,14 @@ class NeuralMCTS:
 class NeuralMCTSAgent(Agent):
     """Adapter, der ``NeuralMCTS`` in das :class:`~agents.base.Agent`-Interface steckt.
 
-    Standard: keine Wurzel-Rauschen, Temperatur 0 (bestes Spiel) – passend für
-    Arena/Evaluation. Für Self-Play wird ``NeuralMCTS`` direkt mit ``add_noise``
-    und Temperatur > 0 benutzt.
+    Temperatur-Schedule: die ersten ``temperature_moves`` Züge werden mit
+    ``temperature`` gesampelt, danach deterministisch (bestes Spiel). Für reines
+    Spielen genügt ``temperature_moves=0`` (immer der beste Zug); in der Evaluation
+    sorgt ein kleines Zeitfenster mit ``temperature=1`` für Partievielfalt, ohne die
+    Endspielstärke zu verwässern.
+
+    Die Zugnummer wird statuslos aus der Steinzahl abgeleitet (``nonzero - 4``), da
+    ``select_move`` keinen Partieverlauf mitführt.
     """
 
     name = "NeuralMCTS"
@@ -265,10 +270,14 @@ class NeuralMCTSAgent(Agent):
         *,
         device: str | torch.device | None = None,
         temperature: float = 0.0,
+        temperature_moves: int = 0,
         seed: int | None = None,
     ) -> None:
         self._mcts = NeuralMCTS(net, config, device=device, add_noise=False, seed=seed)
         self._temperature = temperature
+        self._temperature_moves = temperature_moves
 
     def select_move(self, state: GameState) -> Move:
-        return self._mcts.select_move(state, temperature=self._temperature)
+        move_number = int(np.count_nonzero(state.board)) - 4  # 4 Startsteine
+        temp = self._temperature if move_number < self._temperature_moves else 0.0
+        return self._mcts.select_move(state, temperature=temp)

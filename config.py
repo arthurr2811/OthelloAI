@@ -58,7 +58,30 @@ class SelfPlayConfig:
     max_moves: int = 1000          # Endlosschutz pro Partie
 
 
+@dataclass(frozen=True)
+class TrainConfig:
+    """Parameter der Trainingsschleife (Schritt 2.4)."""
+
+    lr: float = 1e-3
+    weight_decay: float = 1e-4       # L2-Regularisierung über den Optimizer
+    batch_size: int = 64
+    value_loss_weight: float = 1.0   # Gewicht des Value-MSE relativ zur Policy-CE
+
+
+@dataclass(frozen=True)
+class EvalConfig:
+    """Parameter für Evaluation & Gating (Schritt 2.5)."""
+
+    n_games: int = 40
+    win_threshold: float = 0.55      # ab dieser Punktquote wird der Kandidat neues Bestmodell
+    # Explorative Eröffnung (Temperatur 1 für so viele Züge), damit die Partien
+    # variieren – sonst spielen zwei deterministische Netze immer dieselbe Partie.
+    temperature_moves: int = 10
+
+
 DEFAULT_GAME = GameConfig()
 DEFAULT_NET = NetConfig()
 DEFAULT_MCTS = MCTSConfig()
 DEFAULT_SELFPLAY = SelfPlayConfig()
+DEFAULT_TRAIN = TrainConfig()
+DEFAULT_EVAL = EvalConfig()
