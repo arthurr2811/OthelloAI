@@ -46,6 +46,19 @@ class MCTSConfig:
     temperature: float = 1.0       # >0: proportional zu Visit-Counts, 0: argmax
 
 
+@dataclass(frozen=True)
+class SelfPlayConfig:
+    """Parameter für den Self-Play-Loop (Schritt 2.3)."""
+
+    # So viele Anfangszüge werden mit Temperatur 1 (explorativ) gesampelt, danach
+    # deterministisch (Temperatur 0). Sorgt für Eröffnungsvielfalt in den Daten.
+    temperature_moves: int = 15
+    augment: bool = True           # 8 Dihedral-Symmetrien pro Sample
+    buffer_size: int = 100_000     # Max-Größe des Replay-Buffers (Samples)
+    max_moves: int = 1000          # Endlosschutz pro Partie
+
+
 DEFAULT_GAME = GameConfig()
 DEFAULT_NET = NetConfig()
 DEFAULT_MCTS = MCTSConfig()
+DEFAULT_SELFPLAY = SelfPlayConfig()
