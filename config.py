@@ -31,5 +31,21 @@ class NetConfig:
     value_hidden: int = 64      # Breite der versteckten Value-Schicht
 
 
+@dataclass(frozen=True)
+class MCTSConfig:
+    """Parameter für das PUCT-MCTS mit Netz (Schritt 2.2).
+
+    Die Dirichlet-/Temperatur-Werte sind Self-Play-Exploration; beim reinen
+    Spielen/Evaluieren wird ohne Rausch und mit Temperatur ~0 gesucht.
+    """
+
+    n_simulations: int = 200
+    c_puct: float = 1.5            # Explorations-Gewicht in der PUCT-Formel
+    dirichlet_alpha: float = 0.3   # Konzentration des Wurzel-Rauschens
+    dirichlet_epsilon: float = 0.25  # Mischungsanteil des Rauschens
+    temperature: float = 1.0       # >0: proportional zu Visit-Counts, 0: argmax
+
+
 DEFAULT_GAME = GameConfig()
 DEFAULT_NET = NetConfig()
+DEFAULT_MCTS = MCTSConfig()
