@@ -175,12 +175,82 @@ sich hoch: Das Netz zieht sich an den eigenen Suchergebnissen selbst nach oben,
 von planlosem Anfangsgeklopfe bis zu echtem Stellungsverständnis – ganz ohne
 menschliche Vorlage.
 
-#### Ergebnisse
+#### Ergebnisse (6×6-Durchstich)
 
-*Folgt nach dem 6×6-Trainingslauf: Stärke-Kurven gegen die Baselines und über die
-Iterationen, plus die entscheidenden Trainingsparameter.*
+Setup: 6×6-Othello, kleines ResNet (64 Kanäle, 4 Residual-Blöcke), 64 MCTS-Sims pro
+Zug, 40 Iterationen à 20 Self-Play-Partien (~23 s/Iteration, ~15 min gesamt auf einer
+RTX-50-GPU). Gemessen mit `python scripts/measure.py` (40 Partien pro Match, Netz mit
+64 Sims):
+
+| Gegner | Quote des Netzes | W/L/D |
+|---|---|---|
+| Random | 100 % | 40/0/0 |
+| Greedy | 100 % | 40/0/0 |
+| reines MCTS, 50 Sims | 87.5 % | 35/5/0 |
+| reines MCTS, 150 Sims | 85.0 % | 34/6/0 |
+| reines MCTS, 400 Sims | 55.0 % | 21/17/2 |
+| eigenes Netz nach 5 Iterationen | 91.2 % | 36/3/1 |
+
+Zwei Dinge sind ablesbar:
+
+- **Das gelernte Wissen ist echten Suchaufwand wert.** Das Netz spielt mit nur
+  **64 Sims** ungefähr auf Augenhöhe mit reinem MCTS bei **400 Sims** (55 %) und
+  schlägt es bei 150 Sims klar. Policy- und Value-Kopf ersetzen also grob den
+  ~6-fachen Rollout-Aufwand – genau der Sinn von AlphaZero.
+- **Es ist über die Iterationen messbar stärker geworden:** gegen ein *frühes
+  eigenes Ich* (Iteration 5) gewinnt das Endmodell **91 %**. Das ist wichtig, weil
+  die Quote gegen Greedy schon ab Iteration 1 bei 100 % klebt (Greedy ist zu
+  schwach als Maßstab) und das Self-Play-Gating gegen Ende bei ~50 % pendelt – das
+  ist die *Signatur von Konvergenz* (neues ≈ bestes Netz), kein Stillstand. Der
+  Loss läuft entsprechend ab ~Iteration 20 in ein Plateau; die letzten Iterationen
+  fügen wenig hinzu. **Damit ist die Pipeline validiert (Meilenstein 2).**
+
+## Performance & Skalierung (6×6 → 8×8)
+
+Der 6×6-Durchstich läuft in ~23 s pro Iteration (40 Iterationen ≈ 15 min). Das ist
+erst nach zwei Batching-Schritten so schnell: Self-Play und Evaluation liefen
+ursprünglich mit **Batch-Größe 1 pro MCTS-Simulation**, d. h. für jede einzelne
+Stellung ging *ein* Brett auf die GPU und der Prozess wartete auf das Ergebnis
+(CPU↔GPU-Sync). Bei einem winzigen Netz ist diese feste Latenz der ganze
+Flaschenhals – die GPU langweilt sich (~30 % Auslastung).
+
+**Was schon umgesetzt ist:** Self-Play (`az/selfplay_parallel.py`) und Eval-Arena
+(`az/arena_parallel.py`) spielen viele Partien gleichzeitig und bündeln pro Runde
+die Blatt-Bewertungen aller Partien in *einen* Forward-Pass. Messung: **~7×** beim
+Self-Play, **~5×** bei der Eval.
+
+**Warum die GPU trotzdem nur ~30 % zeigt:** Der Engpass ist jetzt die
+**Single-Core-Python-Arbeit** (MCTS-Baumtraversierung + Engine-Ops), nicht die GPU.
+Bei so kleinem Netz ist der Forward-Pass zu billig, um die GPU zu sättigen – und
+das ist in Ordnung: Zielgröße ist die **Wall-Clock-Zeit pro Iteration**, nicht die
+GPU-Prozentzahl.
+
+Für **8×8** wird es spürbar langsamer – nicht wegen der GPU, sondern weil fast
+alles, was 8×8 teurer macht, genau die CPU-Seite trifft: ~doppelt so lange Partien,
+größerer Verzweigungsgrad, teurere `legal_moves`/`apply`, dazu mehr Sims und mehr
+Iterationen. Realistisch Minuten pro Iteration, Stunden bis ~1 Tag gesamt. Die
+Optimierungshebel, nach Wirkung/Aufwand:
+
+| Hebel | Wirkung | Aufwand | Risiko | Status |
+|---|---|---|---|---|
+| **Batched Inferenz** (Self-Play + Eval parallel, Blätter bündeln) | hoch | – | – | **erledigt** |
+| **A – `n_parallel` & `games_per_iteration` hoch** (z. B. 64–128) | mittel–hoch (nutzt GPU-Reserve + CPU/GPU-Überlappung) | null (Config) | keins | offen |
+| **B – Sims/Iterationen bewusst wählen** (Plateau meiden, nicht über-trainieren) | mittel | null | keins | offen |
+| **C – Multiprocessing-Self-Play** über CPU-Kerne | **hoch** (× Kernzahl; idle Cores sind gratis Leistung) | mittel | mittel | geplant |
+| **D – Engine JIT-en (Numba)** auf `legal_moves`/`apply` | **hoch** (heißester Single-Core-Pfad) | mittel | mittel (Tests als Netz) | geplant |
+| **E – Batched Engine** (alle Bretter als ein `(G,8,8)`-Array, Move-Gen vektorisiert) | hoch | hoch | mittel | Reserve |
+| **F – Bitboard** statt NumPy (Move-Gen als Bit-Ops) | mittel–hoch (überlappt mit D) | hoch | hoch (Engine-Rewrite) | Reserve |
+| **G – Größeres Netz** | *kein* Speedup, aber „gratis" dank GPU-Reserve → mehr Stärke | niedrig | keins | für 8×8 geplant |
+
+**Empfohlenes Vorgehen für 8×8:** erst einen kurzen Mess-Lauf (5 Iterationen) für
+echte Zahlen, dann **A + B** (gratis) und ein **größeres Netz (G)**. Reicht das
+nicht, **C und/oder D** – beide greifen die Single-Core-Wurzel an, von
+verschiedenen Seiten. E/F sind Reserve für den Fall, dass C+D nicht genügen; für
+den Projektumfang voraussichtlich nicht nötig. Nicht lohnend: GPU-% direkt jagen
+oder das Netz mikro-optimieren – beides zielt am Engpass vorbei.
 
 ## Status
 
-Phase 1 (Engine & Baselines) in Arbeit: Engine getestet, Random-/Greedy-Baselines
-und Arena stehen. Als Nächstes: MCTS ohne Netz (Schritt 1.5).
+Phase 2 (AlphaZero-Pipeline) validiert: 6×6-Training läuft und lernt nachweislich
+(Meilenstein 2). Self-Play und Evaluation sind gebündelt/parallelisiert. Als
+Nächstes: Skalierung auf 8×8 (Schritt 2.7).
