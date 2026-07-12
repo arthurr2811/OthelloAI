@@ -121,10 +121,8 @@ class NeuralMCTS:
     # --- Suche ---
 
     def _simulate(self, root: _Node) -> None:
-        # 1. Selection: PUCT-Abstieg durch expandierte Knoten.
-        node = root
-        while node.is_expanded and node.children:
-            node = self._select_child(node)
+        # 1. Selection: PUCT-Abstieg zu einem Blatt.
+        node = self._select_leaf(root)
 
         # 2. Auswertung des Blatts: terminal -> echtes Ergebnis, sonst Netz.
         if node.state.is_terminal():
@@ -134,6 +132,19 @@ class NeuralMCTS:
 
         # 3. Backpropagation.
         self._backprop(node, value)
+
+    def _select_leaf(self, root: _Node) -> _Node:
+        """PUCT-Abstieg durch expandierte Knoten bis zu einem Blatt.
+
+        Blatt = noch nicht expandierter Knoten (braucht eine Netz-Bewertung) oder
+        eine terminale Stellung. Diese Trennung von Auswahl und Bewertung ist die
+        Basis fürs gebündelte Self-Play: der Scheduler sammelt die Blätter vieler
+        Partien und bewertet sie in *einem* Forward-Pass.
+        """
+        node = root
+        while node.is_expanded and node.children:
+            node = self._select_child(node)
+        return node
 
     def _select_child(self, node: _Node) -> _Node:
         """PUCT: ``Q(a) + c_puct * P(a) * sqrt(N_parent) / (1 + N(a))``."""
@@ -151,18 +162,24 @@ class NeuralMCTS:
         return best_child
 
     def _expand_and_evaluate(self, node: _Node) -> float:
-        """Bewertet ``node`` mit dem Netz, legt alle Kinder mit Priors an.
+        """Bewertet ``node`` mit dem Netz (Batch-1) und expandiert es.
 
         Rückgabe: Value aus Sicht des Spielers am Zug in ``node.state``.
         """
         priors, value = self._evaluate(node.state)
+        self._expand_with_priors(node, priors)
+        return value
+
+    @staticmethod
+    def _expand_with_priors(node: _Node, priors: np.ndarray) -> None:
+        """Legt alle legalen Kinder von ``node`` mit ihren Policy-Priors an.
+        """
         mover = node.state.current_player
         for move in node.state.legal_moves():
             idx = move_to_index(move, node.state.size)
             child_state = node.state.apply(move)
             node.children[move] = _Node(child_state, parent=node, mover=mover, prior=float(priors[idx]))
         node.is_expanded = True
-        return value
 
     def _backprop(self, leaf: _Node, value: float) -> None:
         """Trägt ``value`` (Sicht: ``leaf.current_player``) den Pfad hinauf.
@@ -246,6 +263,31 @@ class NeuralMCTS:
             return pi
         scaled = counts ** (1.0 / temperature)
         return scaled / scaled.sum()
+
+
+def evaluate_batch(
+    net: OthelloNet,
+    states: list[GameState],
+    device: str | torch.device,
+) -> list[tuple[np.ndarray, float]]:
+    """Bewertet viele Stellungen in *einem* Forward-Pass
+    """
+    planes = np.stack([encode_state(s) for s in states])
+    x = torch.from_numpy(planes).to(device)
+    was_training = net.training
+    net.eval()
+    with torch.no_grad():
+        logits, values = net(x)
+    if was_training:
+        net.train()
+    logits_np = logits.detach().cpu().numpy()
+    values_np = values.detach().cpu().numpy()
+    out: list[tuple[np.ndarray, float]] = []
+    for i, state in enumerate(states):
+        mask = legal_move_mask(state)
+        priors = NeuralMCTS._masked_softmax(logits_np[i], mask)
+        out.append((priors, float(values_np[i])))
+    return out
 
 
 class NeuralMCTSAgent(Agent):

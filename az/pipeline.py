@@ -26,10 +26,9 @@ import torch
 
 from az.checkpoint import load_checkpoint, save_checkpoint
 from az.evaluate import evaluate_vs_baseline, gate
-from az.mcts import NeuralMCTS
 from az.net import OthelloNet
 from az.replay import ReplayBuffer
-from az.selfplay import generate_game
+from az.selfplay_parallel import generate_games_parallel
 from az.train import Trainer
 from config import DEFAULT_RUN, RunConfig
 
@@ -115,13 +114,13 @@ def run_training(
         t0 = time.time()
         log(f"\n=== Iteration {it}/{config.n_iterations - 1} ===")
 
-        # 1. Self-Play mit dem Bestmodell.
-        selfplay_mcts = NeuralMCTS(
-            best_net, config.mcts, device=device, add_noise=True,
-            seed=config.seed + it * 1000,
+        # 1. Self-Play mit dem Bestmodell – gebündelt/parallel, damit die GPU
+        #    ausgelastet ist (statt Batch-1-Inferenz pro Simulation).
+        generate_games_parallel(
+            best_net, config.board_size, config.games_per_iteration,
+            mcts_config=config.mcts, config=config.selfplay, device=device,
+            seed=config.seed + it * 1000, buffer=buffer,
         )
-        for g in range(config.games_per_iteration):
-            generate_game(selfplay_mcts, config.board_size, config.selfplay, rng, buffer)
         log(f"Self-Play: {config.games_per_iteration} Partien, Buffer={len(buffer)}")
 
         # 2. Training eines Kandidaten (Kopie des Bestmodells).

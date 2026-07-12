@@ -56,6 +56,10 @@ class SelfPlayConfig:
     augment: bool = True           # 8 Dihedral-Symmetrien pro Sample
     buffer_size: int = 100_000     # Max-Größe des Replay-Buffers (Samples)
     max_moves: int = 1000          # Endlosschutz pro Partie
+    # Anzahl Partien, die im parallelen Self-Play gleichzeitig laufen. Alle ihre
+    # Blatt-Bewertungen werden pro Runde zu *einem* Netz-Forward gebündelt – das
+    # ist der Hebel, der die GPU auslastet (Batch-1-Inferenz war der Flaschenhals).
+    n_parallel: int = 32
 
 
 @dataclass(frozen=True)
@@ -92,7 +96,7 @@ class RunConfig:
     n_iterations: int = 40
     games_per_iteration: int = 20        # Self-Play-Partien pro Iteration
     train_steps_per_iteration: int = 200  # Gradientenschritte pro Iteration
-    baseline_games: int = 20             # Partien gegen Greedy für die Stärke-Kurve
+    baseline_games: int = 10             # Partien gegen Greedy für die Stärke-Kurve
     seed: int = 0
 
     checkpoint_dir: str = "checkpoints"
@@ -100,10 +104,10 @@ class RunConfig:
 
     # Sub-Configs (unveränderlich, daher als Default-Instanzen teilbar).
     net: NetConfig = NetConfig()
-    mcts: MCTSConfig = MCTSConfig()
+    mcts: MCTSConfig = MCTSConfig(n_simulations=64)
     selfplay: SelfPlayConfig = SelfPlayConfig()
     train: TrainConfig = TrainConfig()
-    eval: EvalConfig = EvalConfig()
+    eval: EvalConfig = EvalConfig(n_games=20)
 
 
 DEFAULT_GAME = GameConfig()
