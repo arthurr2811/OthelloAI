@@ -17,12 +17,13 @@ from dataclasses import dataclass
 
 import torch
 
+from az.arena_parallel import AgentPlayer, NetPlayer, play_match_parallel
 from az.mcts import NeuralMCTSAgent
 from az.net import OthelloNet
 from config import DEFAULT_EVAL, DEFAULT_MCTS, EvalConfig, MCTSConfig
 from othello.board import GameState  # noqa: F401  (dokumentiert die Spielabhängigkeit)
 
-from agents.arena import MatchResult, play_match
+from agents.arena import MatchResult
 from agents.base import Agent
 
 
@@ -72,9 +73,15 @@ def gate(
     seed: int = 0,
 ) -> GatingResult:
     """Kandidat vs. Bestmodell. Angenommen, wenn Quote >= ``win_threshold``."""
-    cand_agent = make_agent(candidate, "candidate", mcts_config, eval_config, device=device, seed=seed)
-    best_agent = make_agent(best, "best", mcts_config, eval_config, device=device, seed=seed + 1)
-    result = play_match(cand_agent, best_agent, eval_config.n_games, size)
+    cand_player = NetPlayer(
+        candidate, "candidate", mcts_config, temperature=1.0,
+        temperature_moves=eval_config.temperature_moves, device=device, seed=seed,
+    )
+    best_player = NetPlayer(
+        best, "best", mcts_config, temperature=1.0,
+        temperature_moves=eval_config.temperature_moves, device=device, seed=seed + 1,
+    )
+    result = play_match_parallel(cand_player, best_player, eval_config.n_games, size, device=device)
     accepted = result.win_rate >= eval_config.win_threshold
     return GatingResult(result=result, win_rate=result.win_rate, accepted=accepted)
 
@@ -91,5 +98,8 @@ def evaluate_vs_baseline(
     seed: int = 0,
 ) -> MatchResult:
     """Misst die absolute Stärke des Netzes gegen einen Baseline-Agenten."""
-    net_agent = make_agent(net, "net", mcts_config, eval_config, device=device, seed=seed)
-    return play_match(net_agent, baseline, n_games, size)
+    net_player = NetPlayer(
+        net, "net", mcts_config, temperature=1.0,
+        temperature_moves=eval_config.temperature_moves, device=device, seed=seed,
+    )
+    return play_match_parallel(net_player, AgentPlayer(baseline), n_games, size, device=device)
