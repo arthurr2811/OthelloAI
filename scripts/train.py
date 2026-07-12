@@ -1,20 +1,13 @@
-"""Einstiegspunkt für den AlphaZero-Trainings-Loop (Schritt 2.6).
+"""Einstiegspunkt für den AlphaZero-Trainings-Loop (8x8-Othello).
 
-Standard: 6x6-Durchstich mit den Defaults aus :class:`config.RunConfig`. Alle
-wichtigen Größen sind per Flag überschreibbar, ohne die Config anzufassen.
+Die Defaults aus :class:`config.RunConfig` sind die echte Trainingskonfiguration;
+alle wichtigen Größen sind per Flag überschreibbar.
 
 Aufruf:
-    python scripts/train.py                       # 6x6, Default-Config
-    python scripts/train.py --iterations 60       # mehr Iterationen
-    python scripts/train.py --resume checkpoints/best.pt
-    python scripts/train.py --smoke               # winziger Wiring-Check (kein echtes Training)
-
-    python scripts/train.py --preset 8x8 --iterations 5   # 8x8-Mess-Lauf (echte Zahlen)
-    python scripts/train.py --preset 8x8                  # 8x8-Vollauf (Schritt 2.7)
-    python scripts/train.py --preset 8x8 --resume checkpoints/8x8/best.pt
-
-Achtung: Der echte Lauf ist langlaufend (Stunden). Für einen schnellen Test der
-Verkabelung ``--smoke`` benutzen.
+    python scripts/train.py                                # Vollauf (~3,8 h)
+    python scripts/train.py --iterations 5                 # kurzer Mess-Lauf
+    python scripts/train.py --resume checkpoints/best.pt   # Lauf fortsetzen
+    python scripts/train.py --smoke                        # Wiring-Check (Minuten)
 """
 
 from __future__ import annotations
@@ -27,20 +20,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from az.pipeline import run_training  # noqa: E402
-from config import DEFAULT_RUN, RUN_8X8, EvalConfig, MCTSConfig, RunConfig  # noqa: E402
-
-PRESETS = {"6x6": DEFAULT_RUN, "8x8": RUN_8X8}
+from config import DEFAULT_RUN, EvalConfig, MCTSConfig, NetConfig, RunConfig, SelfPlayConfig  # noqa: E402
 
 
 def _smoke_config() -> RunConfig:
-    """Winzige Config: ein paar Iterationen, wenige Sims/Partien – nur zum Testen."""
+    """Winzige Config für den Wiring-Check: alle Pfade (inkl. Worker-Pool),
+    aber Mini-Budgets und ein Mini-Netz – kein echtes Training."""
     return RunConfig(
-        board_size=6,
         n_iterations=2,
-        games_per_iteration=2,
+        games_per_iteration=4,
         train_steps_per_iteration=20,
         baseline_games=4,
+        net=NetConfig(channels=16, n_res_blocks=2, value_hidden=16),
         mcts=MCTSConfig(n_simulations=8),
+        selfplay=SelfPlayConfig(temperature_moves=4, n_parallel=4, n_workers=2),
         eval=EvalConfig(n_games=4, win_threshold=0.55, temperature_moves=4),
         checkpoint_dir="checkpoints/smoke",
         log_dir="logs/smoke",
@@ -48,12 +41,8 @@ def _smoke_config() -> RunConfig:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AlphaZero-Training (Othello)")
-    parser.add_argument("--preset", choices=sorted(PRESETS), default="6x6",
-                        help="Basis-Config: 6x6-Durchstich oder 8x8-Zielkonfiguration")
-    # Feineinstellungen: Default None = Preset-Wert gilt; nur explizit gesetzte
-    # Flags überschreiben (sonst würden 6x6-Defaults das 8x8-Preset überdecken).
-    parser.add_argument("--size", type=int, default=None, help="Brettgröße")
+    parser = argparse.ArgumentParser(description="AlphaZero-Training (Othello 8x8)")
+    # Default None = Wert aus RunConfig gilt; nur explizit gesetzte Flags überschreiben.
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--games", type=int, default=None,
                         help="Self-Play-Partien pro Iteration")
@@ -71,10 +60,7 @@ def main() -> int:
     if args.smoke:
         config = _smoke_config()
     else:
-        base = PRESETS[args.preset]
         overrides = {}
-        if args.size is not None:
-            overrides["board_size"] = args.size
         if args.iterations is not None:
             overrides["n_iterations"] = args.iterations
         if args.games is not None:
@@ -84,10 +70,10 @@ def main() -> int:
         if args.seed is not None:
             overrides["seed"] = args.seed
         if args.sims is not None:
-            overrides["mcts"] = replace(base.mcts, n_simulations=args.sims)
+            overrides["mcts"] = replace(DEFAULT_RUN.mcts, n_simulations=args.sims)
         if args.workers is not None:
-            overrides["selfplay"] = replace(base.selfplay, n_workers=args.workers)
-        config = replace(base, **overrides)
+            overrides["selfplay"] = replace(DEFAULT_RUN.selfplay, n_workers=args.workers)
+        config = replace(DEFAULT_RUN, **overrides)
 
     run_training(config, resume=args.resume, device=args.device)
     return 0

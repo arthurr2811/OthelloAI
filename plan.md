@@ -43,12 +43,12 @@ die zeigt *wie* so etwas funktioniert.
 - [x] CUDA prüfen: `torch.cuda.is_available()` → `True`, GPU-Name ausgeben.
 - [x] Projektstruktur anlegen:
   ```
-  othello/        # Engine (reine Spiellogik, kein ML)
-  agents/         # Bots: random, greedy, mcts, alphazero
-  az/             # AlphaZero: netz, mcts, selfplay, train, evaluate
+  othello/        # Engine (reine Spiellogik, kein ML) + Numba-Kernel
+  agents/         # Referenzgegner: random, greedy, mcts
+  az/             # AlphaZero: netz, mcts, selfplay, train, evaluate, pipeline
   web/            # FastAPI-Backend + statisches Frontend
   tests/
-  scripts/        # Einstiegspunkte (train.py, play.py, arena.py)
+  scripts/        # Einstiegspunkte (train.py, measure.py, check_env.py)
   config.py
   ```
 - [x] `README.md` mit Kurzbeschreibung + Setup-Anleitung.
@@ -138,11 +138,11 @@ bewiesen, dass Engine + Suche korrekt zusammenspielen — komplett ohne ML-Unsic
 
 **Ziel:** Netz-Architektur steht und läuft auf der GPU.
 
-- [ ] Kleines ResNet: Input = Board-Ebenen (eigene Steine / gegnerische Steine /
+- [x] Kleines ResNet: Input = Board-Ebenen (eigene Steine / gegnerische Steine /
       Spieler-am-Zug), ein paar Conv-Residual-Blöcke.
-- [ ] **Policy-Head** (Logits über alle Felder + Pass) und **Value-Head** (tanh,
+- [x] **Policy-Head** (Logits über alle Felder + Pass) und **Value-Head** (tanh,
       Gewinnwahrscheinlichkeit aus Sicht des Ziehenden).
-- [ ] Forward-Pass mit Dummy-Batch auf GPU testen (Shapes, keine NaNs).
+- [x] Forward-Pass mit Dummy-Batch auf GPU testen (Shapes, keine NaNs).
 
 **Fertig wenn:** Netz nimmt einen Batch Boards, liefert Policy + Value in korrekten
 Shapes auf der GPU.
@@ -151,10 +151,10 @@ Shapes auf der GPU.
 
 **Ziel:** PUCT-MCTS, das statt Rollouts das Netz zur Bewertung nutzt.
 
-- [ ] PUCT-Formel (Priors aus Policy-Head, Value statt Rollout).
-- [ ] Dirichlet-Noise an der Wurzel (Exploration im Self-Play).
-- [ ] Temperatur-Parameter für die Zugauswahl aus den Visit-Counts.
-- [ ] Legal-Move-Masking auf die Policy.
+- [x] PUCT-Formel (Priors aus Policy-Head, Value statt Rollout).
+- [x] Dirichlet-Noise an der Wurzel (Exploration im Self-Play).
+- [x] Temperatur-Parameter für die Zugauswahl aus den Visit-Counts.
+- [x] Legal-Move-Masking auf die Policy.
 
 **Fertig wenn:** MCTS+Netz (noch untrainiert) läuft fehlerfrei und liefert für eine
 Stellung eine Visit-Count-Verteilung.
@@ -163,11 +163,11 @@ Stellung eine Visit-Count-Verteilung.
 
 **Ziel:** Der Agent erzeugt Trainingsdaten gegen sich selbst.
 
-- [ ] Eine Self-Play-Partie: pro Zug MCTS laufen lassen, `(state, policy_target,
+- [x] Eine Self-Play-Partie: pro Zug MCTS laufen lassen, `(state, policy_target,
       spieler)` speichern; am Ende Value-Target aus dem Ergebnis rückwärts einfüllen.
-- [ ] Symmetrie-Augmentierung (8 Dihedral-Varianten) — nahezu gratis, großer
+- [x] Symmetrie-Augmentierung (8 Dihedral-Varianten) — nahezu gratis, großer
       Sample-Efficiency-Gewinn.
-- [ ] Daten in einen Replay-Buffer (deque mit Max-Größe) schreiben.
+- [x] Daten in einen Replay-Buffer (deque mit Max-Größe) schreiben.
 
 **Fertig wenn:** Eine Self-Play-Partie erzeugt korrekt geformte Trainingssamples
 (inkl. augmentierter), im Buffer sichtbar.
@@ -176,10 +176,10 @@ Stellung eine Visit-Count-Verteilung.
 
 **Ziel:** Netz aus Replay-Buffer-Daten trainieren.
 
-- [ ] Loss = Policy-Cross-Entropy + Value-MSE (+ L2/Weight-Decay).
-- [ ] Optimizer (Adam/SGD), Batches aus dem Buffer, Loss-Kurven loggen
+- [x] Loss = Policy-Cross-Entropy + Value-MSE (+ L2/Weight-Decay).
+- [x] Optimizer (Adam/SGD), Batches aus dem Buffer, Loss-Kurven loggen
       (TensorBoard oder simples CSV/matplotlib).
-- [ ] Checkpoint speichern/laden.
+- [x] Checkpoint speichern/laden.
 
 **Fertig wenn:** Trainingsschritt läuft, Loss sinkt auf einem festen Datenbatch
 (Overfit-Test als Korrektheitsbeweis).
@@ -188,10 +188,10 @@ Stellung eine Visit-Count-Verteilung.
 
 **Ziel:** Nur echte Verbesserungen werden übernommen — das Frühwarnsystem.
 
-- [ ] Neues Modell vs. aktuell bestes über N Partien in der Arena.
-- [ ] Gating: nur bei Siegquote über Schwelle (z. B. 55 %) wird das neue Modell
+- [x] Neues Modell vs. aktuell bestes über N Partien in der Arena.
+- [x] Gating: nur bei Siegquote über Schwelle (z. B. 55 %) wird das neue Modell
       „bestes" Modell.
-- [ ] Zusätzlich gegen Greedy/MCTS-Baseline messen → absolute Stärke-Kurve.
+- [x] Zusätzlich gegen Greedy/MCTS-Baseline messen → absolute Stärke-Kurve.
 
 **Fertig wenn:** Eval-Loop kürt einen Sieger und aktualisiert den „best model"-Zeiger.
 
@@ -221,19 +221,20 @@ Stellung eine Visit-Count-Verteilung.
 
 **Ziel:** Das eigentliche Zielmodell.
 
-- [x] Config hochskalieren (größeres Netz, mehr Sims, mehr Iterationen):
-      `RUN_8X8`-Preset in `config.py` (Netz 128ch/8 Blöcke, 128 Sims, 96 Partien
-      parallel je Iteration, eigene Verzeichnisse `checkpoints/8x8` + `logs/8x8`),
-      aufrufbar via `python scripts/train.py --preset 8x8`. Wiring auf GPU getestet.
-- [x] Self-Play weiter parallelisieren: erster Mess-Lauf ohne C/D lag bei
-      hochgerechnet ~10–12 h (> 8-h-Budget) → **C** (Multiprocessing-Pool,
-      `az/selfplay_mp.py`, 6 Worker) und **D** (Numba-Kernel,
-      `othello/_kernels.py`, Äquivalenz-Test als Netz) umgesetzt.
-- [ ] **Mess-Lauf:** `python scripts/train.py --preset 8x8 --iterations 5`, dann
-      Spalte `seconds` in `logs/8x8/iterations.csv` auf 120 Iterationen
-      hochrechnen → muss klar unter 8 h landen (sonst Hebel E/F nachziehen).
-- [ ] Lauf über mehrere Tage, regelmäßig Checkpoints + Stärke-Kurve sichern
-      (Resume: `--preset 8x8 --resume checkpoints/8x8/best.pt`).
+- [x] Config hochskalieren (größeres Netz, mehr Sims, mehr Iterationen): Netz
+      128ch/8 Blöcke, 128 Sims, 96 Partien je Iteration – seit dem Cleanup sind
+      das die Defaults in `config.py`.
+- [x] Self-Play beschleunigen: erster Mess-Lauf lag bei hochgerechnet ~10–12 h
+      (> 8-h-Budget) → Multiprocessing-Pool (`az/selfplay_mp.py`, 6 Worker) und
+      Numba-Kernel (`othello/_kernels.py`, Äquivalenz-Test als Netz) umgesetzt.
+- [x] **Mess-Lauf** (5 Iterationen): stabil ~114 s/Iteration → 120 Iterationen
+      ≈ 3,8 h, klar unter dem 8-h-Budget. Loss fällt, Gating nimmt an,
+      100 % gegen Greedy ab Iteration 1.
+- [ ] **Vollauf:** `python scripts/train.py --resume checkpoints/best.pt`
+      (setzt die 5 Mess-Iterationen fort; jede Iteration ist gecheckpointet,
+      Abbruch/Fortsetzen jederzeit möglich).
+- [ ] Ergebnis mit `python scripts/measure.py` messen (vs. Greedy und reines
+      MCTS mit mehreren Sim-Budgets) und im README dokumentieren.
 
 **Fertig wenn:** Ein 8×8-Checkpoint schlägt Greedy und das reine MCTS deutlich —
 Kandidat für „schlägt Hobbyspieler".
@@ -282,9 +283,15 @@ Kandidat für „schlägt Hobbyspieler".
 
 **Ziel:** Sauberer Code
 
-- [ ] Code aufgeräumt, nur für Zwischenschritte nötigen Code entfernt.
-- [ ] Readme ist rund.
-- [ ] Deliverable: Gut DOkumentiertes Projekt, das aufbau der KI zeigt und erklärt. Fertig trainiertes Modell, dass menschliche Spieler zuverlässig schlagen kann.
+- [x] Code aufgeräumt (vor dem 8×8-Vollauf): sequenzielles Self-Play,
+      Zwischenschritt-Skripte (`scripts/arena.py`, `scripts/arena_mcts.py`),
+      6×6/8×8-Preset-Doppel und ungenutzte Config entfernt; `config.py`-Defaults
+      sind jetzt der echte 8×8-Lauf; Checkpoints/Logs liegen direkt in
+      `checkpoints/` + `logs/`.
+- [x] README gestrafft: Fokus auf finale Pipeline statt Entwicklungshistorie.
+- [ ] Deliverable: Gut dokumentiertes Projekt, das Aufbau der KI zeigt und
+      erklärt. Fertig trainiertes Modell, das menschliche Spieler zuverlässig
+      schlagen kann. (Finaler Pass nach Phase 3.)
 ## Bewusst später / außerhalb des Scopes
 
 - Hetzner-Deployment des fertigen Modells (eigene Aufgabe, wenn das Modell steht).
@@ -295,5 +302,5 @@ Kandidat für „schlägt Hobbyspieler".
 
 - [x] Phase 0 – Setup
 - [x] Phase 1 – Engine & Baselines (Meilenstein 1)
-- [ ] Phase 2 – AlphaZero-Pipeline (Meilenstein 2)
+- [ ] Phase 2 – AlphaZero-Pipeline (Meilenstein 2 erreicht; 8×8-Vollauf offen)
 - [ ] Phase 3 – Frontend (Meilenstein 3)

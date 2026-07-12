@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from az.replay import Sample
+
 # Die 8 Elemente der Dieder-Gruppe D4 als (Rotationen k, spiegeln?).
 _SYMMETRIES: tuple[tuple[int, bool], ...] = (
     (0, False), (1, False), (2, False), (3, False),
@@ -58,4 +60,13 @@ def symmetries(
     out = []
     for k, flip in _SYMMETRIES:
         out.append((transform_planes(planes, k, flip), transform_policy(policy, size, k, flip)))
+    return out
+
+
+def augment(samples: list[Sample], size: int) -> list[Sample]:
+    """Verachtfacht die Samples über die 8 Dihedral-Symmetrien."""
+    out: list[Sample] = []
+    for s in samples:
+        for planes, policy in symmetries(s.planes, s.policy, size):
+            out.append(Sample(planes=planes, policy=policy, value=s.value))
     return out

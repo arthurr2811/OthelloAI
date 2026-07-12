@@ -12,16 +12,18 @@ import torch
 
 from az.arena_parallel import AgentPlayer, NetPlayer, play_match_parallel
 from az.net import OthelloNet
-from config import MCTSConfig
+from config import MCTSConfig, NetConfig
 
 from agents.arena import play_match
 from agents.simple import RandomAgent
 from az.mcts import NeuralMCTSAgent
 
+_TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
+
 
 def _net(size=6, seed=0):
     torch.manual_seed(seed)
-    return OthelloNet(board_size=size).eval()
+    return OthelloNet(board_size=size, config=_TINY_NET).eval()
 
 
 _MCTS = MCTSConfig(n_simulations=8)

@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import numpy as np
 
+from az.augment import augment
 from az.encoding import encode_state, index_to_move
 from az.mcts import NeuralMCTS, _Node, evaluate_batch
 from az.net import OthelloNet
 from az.replay import ReplayBuffer, Sample
-from az.selfplay import augment
 from config import DEFAULT_SELFPLAY, MCTSConfig, SelfPlayConfig
 from othello.board import EMPTY, PASS, GameState
 

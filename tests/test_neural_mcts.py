@@ -14,13 +14,16 @@ import torch
 from az.encoding import index_to_move, move_to_index, num_actions
 from az.mcts import NeuralMCTS, NeuralMCTSAgent, _Node
 from az.net import OthelloNet
-from config import MCTSConfig
+from config import MCTSConfig, NetConfig
 from othello.board import PASS, GameState
+
+# Mini-Netz: hier geht es um die Suche, nicht um Kapazität – hält die Suite schnell.
+_TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
 
 
 def _net(size=8):
     torch.manual_seed(0)
-    return OthelloNet(board_size=size).eval()
+    return OthelloNet(board_size=size, config=_TINY_NET).eval()
 
 
 def test_run_produces_visit_counts():
@@ -137,7 +140,7 @@ def test_backprop_sign_convention():
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="keine CUDA-GPU")
 def test_runs_on_gpu():
-    net = OthelloNet(board_size=8).eval().cuda()
+    net = OthelloNet(board_size=8, config=_TINY_NET).eval().cuda()
     mcts = NeuralMCTS(net, MCTSConfig(n_simulations=20), seed=9)
     root = mcts.run(GameState.initial(size=8))
     assert root.N == 20

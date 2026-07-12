@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 
-import copy
-
-import numpy as np
 import torch
 
-from az.evaluate import evaluate_vs_baseline, gate, make_agent
+from az.evaluate import evaluate_vs_baseline, gate
 from az.net import OthelloNet
-from config import EvalConfig, MCTSConfig
-from othello.board import GameState
+from config import EvalConfig, MCTSConfig, NetConfig
 
 from agents.simple import RandomAgent
+
+_TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
 
 
 def _net(size=6, seed=0):
     torch.manual_seed(seed)
-    return OthelloNet(board_size=size).eval()
+    return OthelloNet(board_size=size, config=_TINY_NET).eval()
 
 
 _SMALL_MCTS = MCTSConfig(n_simulations=8)
@@ -45,17 +43,6 @@ def test_gate_promotes_on_threshold():
     cfg_hard = EvalConfig(n_games=2, win_threshold=1.01, temperature_moves=4)
     res_hard = gate(_net(seed=1), _net(seed=2), size=6, mcts_config=_SMALL_MCTS, eval_config=cfg_hard, seed=0)
     assert res_hard.accepted is False
-
-
-def test_openings_vary_between_games():
-    # Mit temperature_moves > 0 dürfen zwei Partien desselben Netz-Paars nicht
-    # zwangsläufig identisch sein – sonst wäre die Evaluation wertlos.
-    agent = make_agent(_net(seed=1), "a", _SMALL_MCTS, _SMALL_EVAL, seed=0)
-    state1 = GameState.initial(6)
-    first_moves = set()
-    for _ in range(6):
-        first_moves.add(agent.select_move(state1))
-    assert len(first_moves) > 1
 
 
 def test_evaluate_vs_baseline_runs():

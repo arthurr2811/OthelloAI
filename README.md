@@ -1,266 +1,112 @@
 # Othello AI
 
-Eine AlphaZero-artige Othello-KI – lokal auf GPU trainiert, mit Web-Frontend zum
-Selberspielen. Die Pipeline geht von einer getesteten Spiel-Engine über klassische
-Baselines und reines MCTS bis zum selbst-trainierten neuronalen Netz.
+Eine AlphaZero-artige Othello-KI (8×8), lokal auf GPU trainiert – ohne
+menschliche Partien, ohne einprogrammiertes Othello-Wissen. Dazu ein
+Web-Frontend zum Selberspielen (Phase 3, in Arbeit).
 
-Details zum Vorgehen: siehe [`plan.md`](plan.md).
-
-## Stack
-
-- Python 3.11+ (entwickelt mit 3.13), PyTorch (CUDA)
-- NumPy für die Board-Logik, pytest für Tests
-- FastAPI + HTML/JS für das Frontend
+Vorgehen und Projektfortschritt: siehe [`plan.md`](plan.md).
 
 ## Setup
 
 ```bash
-# 1. venv anlegen
 py -3.13 -m venv .venv
-.venv\Scripts\activate        # Windows (PowerShell/CMD)
-# source .venv/bin/activate   # Linux/macOS
-
-# 2. Basis-Dependencies
+.venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 
-# 3. PyTorch mit CUDA passend zur GPU installieren.
-#    RTX-50-Serie (Blackwell, sm_120) braucht das CUDA-12.8-Wheel:
+# PyTorch passend zur GPU (RTX-50-Serie braucht das CUDA-12.8-Wheel):
 pip install torch --index-url https://download.pytorch.org/whl/cu128
 
-# 4. Umgebung prüfen (erwartet: CUDA verfügbar = True, GPU-Name)
-python scripts/check_env.py
-
-# 5. Tests
+python scripts/check_env.py   # erwartet: CUDA verfügbar = True
 pytest
 ```
 
 ## Projektstruktur
 
 ```
-othello/   # Engine (reine Spiellogik, kein ML)
-agents/    # Bots: random, greedy, mcts, alphazero
-az/        # AlphaZero: netz, mcts, selfplay, train, evaluate
-web/       # FastAPI-Backend + statisches Frontend
-tests/
-scripts/   # Einstiegspunkte (train.py, play.py, arena.py, check_env.py)
-config.py  # zentrale Konfiguration
+othello/   # Spiel-Engine (reine Logik, kein ML) + Numba-Kernel für die Hotpaths
+agents/    # Referenzgegner: Random, Greedy, reines MCTS
+az/        # AlphaZero: Netz, PUCT-MCTS, Self-Play, Training, Evaluation, Pipeline
+web/       # FastAPI-Backend + Frontend (Phase 3)
+scripts/   # train.py (Trainings-Loop), measure.py (Stärke messen), check_env.py
+tests/     # pytest-Suite (Engine, Suche, Pipeline, Kernel-Äquivalenz)
+config.py  # zentrale Trainingskonfiguration (die Defaults = der echte 8x8-Lauf)
 ```
 
-## Die Agenten – wie sie spielen
+## Wie die KI funktioniert
 
-Mehrere Ansätze in Form von verschiedenen Agenten, von leicht umsetzbar und nur minimal stärker als Random bis zu 
-wirklich intelligent.
+**MCTS als Grundgerüst.** Statt den Spielbaum vollständig zu durchrechnen,
+untersucht Monte-Carlo-Baumsuche gezielt die vielversprechendsten Züge und
+steckt Rechenzeit dorthin, wo sie sich lohnt. Ein reines MCTS mit
+Zufalls-Rollouts (in `agents/mcts.py`) schlägt die einfachen Baselines bereits
+deutlich – der Beweis, dass Engine und Suche korrekt zusammenspielen, ganz ohne ML.
 
-### Baseline-Bots: Random & Greedy
+**AlphaZero = MCTS + gelerntes Netz.** Ein kleines ResNet (`az/net.py`) ersetzt
+die zwei schwächsten Stellen der reinen Suche:
 
-- **RandomAgent** wählt gleichverteilt einen der legalen Züge. Er ist die
-  absolute Untergrenze: nützlich als Messlatte und um die Engine zu stressen
-  (tausende Zufallspartien decken Randfälle auf).
-- **GreedyAgent** wählt kurzsichtig den Zug, der **die meisten gegnerischen
-  Steine umdreht**: nur einen Halbzug tief gedacht.
+- **Value-Kopf** statt Zufalls-Rollouts: „Wie gut steht der Spieler am Zug?" –
+  eine gelernte Bewertung in `[-1, 1]` statt tausender Zufallspartien.
+- **Policy-Kopf** statt blinder Zugauswahl: „Welche Züge sind vielversprechend?" –
+  Priors, die die Suche sofort in gute Richtungen lenken (PUCT-Formel).
 
-Man würde erwarten, dass Greedy Random deutlich schlägt. Tatsächlich gewinnt er
-nur **~61 %** der Partien (500 Spiele, `python scripts/arena.py`). Der Grund ist
-lehrreich: **„so viele Steine wie möglich umdrehen" ist bei Othello eine schwache
-Heuristik.** Wer früh viele Steine besitzt, steht oft *schlechter*, denn diese Steine
-sind leicht zurückzuerobern. Es kommt nicht auf die Masse an, sondern auf
-**Stabilität und Position**: Ecken (nie mehr umdrehbar), Kanten und die
-Beweglichkeit (dem Gegner Züge nehmen). Die Steinzahl entscheidet erst am
-Spielende.
+Die Eingabe sind 3 Ebenen (eigene Steine, gegnerische Steine, wer am Zug ist),
+immer aus Sicht des Ziehenden.
 
-Genau deshalb sind die folgenden Stufen so viel stärker: Sie optimieren nicht die
-momentane Steinzahl, sondern die *Gewinnwahrscheinlichkeit*.
+**Training durch Self-Play** (`az/pipeline.py`, pro Iteration):
 
-### MCTS – Monte Carlo Tree Search
+1. **Self-Play:** Das beste Netz spielt gegen sich selbst. Pro Stellung wird die
+   MCTS-Visit-Verteilung gespeichert, am Partieende der Ausgang. Dirichlet-Rauschen
+   und eine Eröffnungs-Temperatur sorgen für Vielfalt.
+2. **Training:** Die Policy lernt die (stärkere) Suchverteilung nachzuahmen, der
+   Value den Partie-Ausgang vorherzusagen. Jedes Sample wird über die 8
+   Brett-Symmetrien verachtfacht.
+3. **Gating:** Der frisch trainierte Kandidat muss das bisherige Bestmodell über
+   ≥ 55 % der Partien schlagen, sonst wird er verworfen – verrauschte Runden
+   können die KI so nicht verschlechtern.
 
-MCTS findet gute Züge, ohne Othello-Wissen einprogrammiert zu bekommen. Statt den
-(gigantischen) Spielbaum vollständig zu durchrechnen, spielt es von der aktuellen
-Stellung aus **sehr oft zufällig zu Ende** und lernt daraus, welche Züge sich
-lohnen. Die Rechenzeit fließt dorthin, wo es sich lohnt, d.h. vielversprechende Züge
-werden tiefer untersucht, schlechte kaum.
+Die Rückkopplung „stärkere Suche → bessere Daten → stärkeres Netz → stärkere
+Suche" schaukelt sich von Zufallsspiel zu echtem Stellungsverständnis hoch.
 
-Eine einzelne Simulation durchläuft vier Schritte, tausendfach wiederholt:
+## Training ausführen
 
-1. **Selection** – vom Wurzelknoten abwärts wandern, immer den „interessantesten"
-   Kindknoten wählen. „Interessant" = bester **UCB1-Wert**: die bisherige
-   Gewinnquote *plus* ein Bonus dafür, dass ein Zug selten probiert wurde (mehr
-   dazu unten).
-2. **Expansion** – am Rand des bekannten Baums einen neuen Knoten für einen noch
-   nicht probierten Zug anhängen.
-3. **Rollout** – von dort **komplett zufällig** bis zum Spielende weiterspielen;
-   Ergebnis: Sieg oder Niederlage. (Der „Monte-Carlo"-Teil: Zufall statt teuer bis zum Ende rechnen.)
-4. **Backpropagation** – das Ergebnis den durchlaufenen Pfad zurück nach oben
-   tragen und je Knoten Besuchszahl und Gewinnbilanz aktualisieren.
+```bash
+python scripts/train.py                                # Vollauf: 120 Iterationen, ~3,8 h
+python scripts/train.py --resume checkpoints/best.pt   # abgebrochenen Lauf fortsetzen
+python scripts/train.py --smoke                        # schneller Wiring-Check
+python scripts/measure.py                              # Stärke: vs Random/Greedy/MCTS
+```
 
-Am Ende wird der **am häufigsten besuchte** Zug gespielt: die Besuchszahl ist das
-robusteste Vertrauensmaß.
+Alle Parameter (Netzgröße, Sims, Partien, Worker …) liegen in `config.py`;
+jede Iteration schreibt Checkpoint + Kennzahlen (`logs/iterations.csv`).
 
-Der Kern steckt in der Auswahl (Schritt 1): die **UCB1**-Formel balanciert
-*Exploitation* (Züge, die bisher gut liefen, weiterverfolgen) gegen *Exploration*
-(selten probierte Züge trotzdem mal ansehen). Ein noch nie probierter Zug bekommt
-den größtmöglichen Bonus und wird garantiert einmal ausprobiert; je öfter ein Zug
-besucht wurde, desto kleiner sein Bonus und desto mehr zählt nur noch seine
-Gewinnquote. So findet MCTS mit begrenzter Rechenzeit trotzdem starke Züge und
-schlägt Greedy klar, ganz ohne ML. Damit ist bewiesen, dass Engine und Suche
-korrekt zusammenspielen.
+## Performance
 
-### AlphaZero (ML)
+Der Engpass des Trainings ist nicht die GPU, sondern Single-Core-Python
+(MCTS-Baum + Engine-Operationen). Drei Maßnahmen zusammen machen den
+8×8-Lauf praktikabel (~114 s/Iteration statt hochgerechnet > 5 min):
 
-AlphaZero benutzt **denselben** MCTS-Kern wie oben: Selection, Expansion,
-Backpropagation bleiben. Es ersetzt aber die zwei schwächsten Stellen durch ein
-neuronales Netz:
+1. **Gebündelte Inferenz:** Viele Partien laufen verzahnt; alle anstehenden
+   Blatt-Bewertungen einer Runde gehen als *ein* Batch auf die GPU
+   (`az/selfplay_parallel.py`, `az/arena_parallel.py`).
+2. **Numba-JIT-Kernel** für die heißen Engine-Pfade `legal_moves`/`apply_move`
+   (`othello/_kernels.py`); die reine Python-Engine bleibt als Referenz, ein
+   Äquivalenz-Test prüft beide gegeneinander.
+3. **Multiprocessing-Self-Play:** Ein persistenter Pool aus 6 Worker-Prozessen
+   teilt sich die Partien jeder Iteration (`az/selfplay_mp.py`).
 
-- **Kein zufälliger Rollout mehr.** Statt von einem neuen Knoten aus zufällig zu
-  Ende zu spielen, fragt AlphaZero das Netz *einmal*: „Wie gut steht dieser
-  Spieler hier?" Diese gelernte Bewertung (**Value**) ersetzt tausende
-  Zufallspartien durch einen einzigen, viel treffsichereren Blick.
-- **Keine blinde Zug-Auswahl mehr.** Bei UCB1 startet jeder unprobierte Zug
-  gleichberechtigt. AlphaZero bekommt vom Netz vorab eine Einschätzung, *welche*
-  Züge überhaupt vielversprechend sind (**Policy**), und lenkt die Suche sofort
-  dorthin. Die Auswahlformel heißt entsprechend **PUCT** (UCB1 + Policy-Prior).
+## Ergebnisse
 
-Ergebnis: Wo reines MCTS Hunderte Simulationen braucht, reichen mit einem guten
-Netz oft deutlich weniger für stärkere Züge. Die Rechenzeit wird nicht mehr in
-Zufall verbrannt, sondern durch gelerntes Wissen geführt.
+**6×6-Durchstich (Pipeline-Validierung):** Nach 40 Iterationen (~15 min) schlägt
+das Netz mit 64 Sims/Zug Random und Greedy zu 100 %, reines MCTS mit 150 Sims zu
+85 % und spielt gegen reines MCTS mit 400 Sims noch 55 % – das gelernte Wissen
+ersetzt also grob den 6-fachen Suchaufwand. Gegen sein eigenes früheres Ich
+(Iteration 5) gewinnt es 91 % → messbarer Fortschritt über die Iterationen.
 
-#### Das Netz
-
-Das Modell ist ein kleines **ResNet** (Convolutional Neural Network mit
-Residual-Blöcken), das eine Stellung in *zwei* Antworten übersetzt:
-
-- **Eingabe:** die Stellung als 3 Ebenen à Brettgröße: eigene Steine,
-  gegnerische Steine, und eine Ebene „wer ist am Zug". Wichtig: immer aus **Sicht
-  des Ziehenden** kodiert, damit das Netz nur *eine* Bewertung lernen muss und
-  nicht getrennt für Schwarz und Weiß.
-- **Ausgabe 1 – Policy:** eine Wahrscheinlichkeit pro Feld (plus Pass = 0), also diese Züge sind nach dem, was das CNN gelernt hat am vielversprechendsten.
-- **Ausgabe 2 – Value:** eine einzige Zahl in `[-1, +1]`: die vom CNN geschätzte
-  Gewinnwahrscheinlichkeit aus Sicht des Ziehenden (`+1` = sicherer Sieg, `-1` =
-  sichere Niederlage) von der Stellung aus, die nach diesem Zug bestehen würde.
-
-Torso und beide Köpfe teilen sich dieselben Convolution-Schichten, das Netz baut
-also *ein* Verständnis der Stellung auf und zapft es für beide Fragen an. Gelernt
-werden ausschließlich die Gewichte dieser Schichten; kein Othello-Wissen
-(Ecken, Stabilität …) ist vorgegeben.
-
-#### Das Training – die KI spielt gegen sich selbst
-
-Der Clou: Es gibt **keine menschlichen Partien** als Lehrmaterial. Das Netz
-erzeugt seine Trainingsdaten selbst, in einem Kreislauf, der sich immer wieder
-wiederholt (`scripts/train.py`):
-
-1. **Self-Play.** Die KI spielt mit dem aktuell besten Netz gegen sich selbst.
-   Pro Zug läuft ein MCTS-Suchlauf; gespeichert wird für jede Stellung die
-   **Visit-Verteilung** der Suche (welche Züge wurden wie oft besucht) und später
-   der **Ausgang** der Partie. Etwas Zufall an der Wurzel (*Dirichlet-Noise*) und
-   eine „Temperatur" in der Eröffnung sorgen für Vielfalt, damit nicht immer
-   dieselbe Partie entsteht.
-2. **Die zwei Lernsignale.** Genau hier schließt sich der Kreis:
-   - Die **Policy** lernt, die MCTS-Visit-Verteilung nachzuahmen. Die Suche ist
-     stärker als das wenig trainierte Netz; das Netz destilliert also das Suchergebnis in
-     sich hinein und trifft beim nächsten Mal schon *ohne* Suche bessere Vortipps.
-   - Der **Value** lernt, den tatsächlichen Partie-Ausgang vorherzusagen: Stand
-     die Stellung am Ende auf Sieg oder Niederlage?
-3. **Training.** Aus einem **Replay-Buffer** der jüngsten Self-Play-Daten zieht
-   der Optimizer zufällige Batches und passt die Netzgewichte an (Loss =
-   Policy-Cross-Entropy + Value-MSE). Jedes Sample wird zusätzlich über die 8
-   Symmetrien des Bretts gespiegelt/gedreht. Das bringt gratis das Achtfache an Daten.
-4. **Gating.** Das frisch trainierte Netz muss sich beweisen: Es spielt gegen das
-   bisher beste Netz. Nur wenn es eine klare Mehrheit der Partien gewinnt (Schwelle
-   ~55 %), wird es zum neuen „besten" Netz befördert. Das verhindert, dass eine
-   verrauschte Trainingsrunde die KI *schlechter* macht.
-
-Warum wird sie dadurch besser? Stärkere Suche → bessere Trainingsdaten → stärkeres
-Netz → das macht die *nächste* Suche noch stärker. Diese Rückkopplung schaukelt
-sich hoch: Das Netz zieht sich an den eigenen Suchergebnissen selbst nach oben,
-von planlosem Anfangsgeklopfe bis zu echtem Stellungsverständnis – ganz ohne
-menschliche Vorlage.
-
-#### Ergebnisse (6×6-Durchstich)
-
-Setup: 6×6-Othello, kleines ResNet (64 Kanäle, 4 Residual-Blöcke), 64 MCTS-Sims pro
-Zug, 40 Iterationen à 20 Self-Play-Partien (~23 s/Iteration, ~15 min gesamt auf einer
-RTX-50-GPU). Gemessen mit `python scripts/measure.py` (40 Partien pro Match, Netz mit
-64 Sims):
-
-| Gegner | Quote des Netzes | W/L/D |
-|---|---|---|
-| Random | 100 % | 40/0/0 |
-| Greedy | 100 % | 40/0/0 |
-| reines MCTS, 50 Sims | 87.5 % | 35/5/0 |
-| reines MCTS, 150 Sims | 85.0 % | 34/6/0 |
-| reines MCTS, 400 Sims | 55.0 % | 21/17/2 |
-| eigenes Netz nach 5 Iterationen | 91.2 % | 36/3/1 |
-
-Zwei Dinge sind ablesbar:
-
-- **Das gelernte Wissen ist echten Suchaufwand wert.** Das Netz spielt mit nur
-  **64 Sims** ungefähr auf Augenhöhe mit reinem MCTS bei **400 Sims** (55 %) und
-  schlägt es bei 150 Sims klar. Policy- und Value-Kopf ersetzen also grob den
-  ~6-fachen Rollout-Aufwand – genau der Sinn von AlphaZero.
-- **Es ist über die Iterationen messbar stärker geworden:** gegen ein *frühes
-  eigenes Ich* (Iteration 5) gewinnt das Endmodell **91 %**. Das ist wichtig, weil
-  die Quote gegen Greedy schon ab Iteration 1 bei 100 % klebt (Greedy ist zu
-  schwach als Maßstab) und das Self-Play-Gating gegen Ende bei ~50 % pendelt – das
-  ist die *Signatur von Konvergenz* (neues ≈ bestes Netz), kein Stillstand. Der
-  Loss läuft entsprechend ab ~Iteration 20 in ein Plateau; die letzten Iterationen
-  fügen wenig hinzu. **Damit ist die Pipeline validiert (Meilenstein 2).**
-
-## Performance & Skalierung (6×6 → 8×8)
-
-Der 6×6-Durchstich läuft in ~23 s pro Iteration (40 Iterationen ≈ 15 min). Das ist
-erst nach zwei Batching-Schritten so schnell: Self-Play und Evaluation liefen
-ursprünglich mit **Batch-Größe 1 pro MCTS-Simulation**, d. h. für jede einzelne
-Stellung ging *ein* Brett auf die GPU und der Prozess wartete auf das Ergebnis
-(CPU↔GPU-Sync). Bei einem winzigen Netz ist diese feste Latenz der ganze
-Flaschenhals – die GPU langweilt sich (~30 % Auslastung).
-
-**Was schon umgesetzt ist:** Self-Play (`az/selfplay_parallel.py`) und Eval-Arena
-(`az/arena_parallel.py`) spielen viele Partien gleichzeitig und bündeln pro Runde
-die Blatt-Bewertungen aller Partien in *einen* Forward-Pass. Messung: **~7×** beim
-Self-Play, **~5×** bei der Eval.
-
-**Warum die GPU trotzdem nur ~30 % zeigt:** Der Engpass ist jetzt die
-**Single-Core-Python-Arbeit** (MCTS-Baumtraversierung + Engine-Ops), nicht die GPU.
-Bei so kleinem Netz ist der Forward-Pass zu billig, um die GPU zu sättigen – und
-das ist in Ordnung: Zielgröße ist die **Wall-Clock-Zeit pro Iteration**, nicht die
-GPU-Prozentzahl.
-
-Für **8×8** wird es spürbar langsamer – nicht wegen der GPU, sondern weil fast
-alles, was 8×8 teurer macht, genau die CPU-Seite trifft: ~doppelt so lange Partien,
-größerer Verzweigungsgrad, teurere `legal_moves`/`apply`, dazu mehr Sims und mehr
-Iterationen. Realistisch Minuten pro Iteration, Stunden bis ~1 Tag gesamt. Die
-Optimierungshebel, nach Wirkung/Aufwand:
-
-| Hebel | Wirkung | Aufwand | Risiko | Status |
-|---|---|---|---|---|
-| **Batched Inferenz** (Self-Play + Eval parallel, Blätter bündeln) | hoch | – | – | **erledigt** |
-| **A – `n_parallel` & `games_per_iteration` hoch** (z. B. 64–128) | mittel–hoch (nutzt GPU-Reserve + CPU/GPU-Überlappung) | null (Config) | keins | **erledigt** (96/96 im Preset) |
-| **B – Sims/Iterationen bewusst wählen** (Plateau meiden, nicht über-trainieren) | mittel | null | keins | **erledigt** (128 Sims, 120 Iter.) |
-| **C – Multiprocessing-Self-Play** über CPU-Kerne | **hoch** (× Kernzahl; idle Cores sind gratis Leistung) | mittel | mittel | **erledigt** (`az/selfplay_mp.py`, 6 Worker im Preset) |
-| **D – Engine JIT-en (Numba)** auf `legal_moves`/`apply` | **hoch** (heißester Single-Core-Pfad) | mittel | mittel (Tests als Netz) | **erledigt** (`othello/_kernels.py` + Äquivalenz-Test) |
-| **E – Batched Engine** (alle Bretter als ein `(G,8,8)`-Array, Move-Gen vektorisiert) | hoch | hoch | mittel | Reserve |
-| **F – Bitboard** statt NumPy (Move-Gen als Bit-Ops) | mittel–hoch (überlappt mit D) | hoch | hoch (Engine-Rewrite) | Reserve |
-| **G – Größeres Netz** | *kein* Speedup, aber „gratis" dank GPU-Reserve → mehr Stärke | niedrig | keins | **erledigt** (128ch/8 Blöcke im Preset) |
-
-**A, B und G stecken im `RUN_8X8`-Preset** (`config.py`), Aufruf:
-`python scripts/train.py --preset 8x8` (Mess-Lauf: `--iterations 5`; Checkpoints
-und Logs landen getrennt in `checkpoints/8x8` bzw. `logs/8x8`).
-
-**Stand:** Ein erster Mess-Lauf ohne C/D lag hochgerechnet bei ~10–12 h für
-120 Iterationen — zu viel für das Zeitbudget (< 8 h am Stück). Deshalb sind
-**C und D** jetzt ebenfalls umgesetzt: **D** ersetzt die heißesten Engine-Pfade
-(`legal_moves`/`apply_move`/`has_legal_move`) durch Numba-JIT-Kernel — die reine
-Python-Engine bleibt als Fallback und Referenz erhalten, ein Äquivalenz-Test
-(`tests/test_kernels.py`) prüft beide auf Zufallspartien gegeneinander. **C**
-verteilt die Self-Play-Partien einer Iteration über einen persistenten
-Prozess-Pool (`az/selfplay_mp.py`, `n_workers` in der Config); jeder Worker
-fährt intern den gebündelten Scheduler mit eigener GPU-Inferenz. E/F bleiben
-Reserve; nach dem Mess-Lauf (5 Iterationen, `seconds`-Spalte hochrechnen)
-entscheidet sich, ob sie je gebraucht werden. Nicht lohnend: GPU-% direkt jagen
-oder das Netz mikro-optimieren – beides zielt am Engpass vorbei.
+**8×8 (Ziellauf):** in Arbeit – erste 5 Iterationen zeigen sauber fallenden
+Loss, 100 % gegen Greedy ab Iteration 1 und stabile ~114 s/Iteration.
 
 ## Status
 
-Phase 2 (AlphaZero-Pipeline) validiert: 6×6-Training läuft und lernt nachweislich
-(Meilenstein 2). Self-Play und Evaluation sind gebündelt/parallelisiert. Als
-Nächstes: Skalierung auf 8×8 (Schritt 2.7).
+- Engine, Baselines, reines MCTS: fertig und getestet (Meilenstein 1)
+- AlphaZero-Pipeline auf 6×6 validiert (Meilenstein 2)
+- 8×8-Training: konfiguriert und gemessen, Vollauf steht an (Schritt 2.7)
+- Web-Frontend zum Selberspielen: als Nächstes (Phase 3)

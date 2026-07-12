@@ -11,12 +11,14 @@ from az.encoding import num_actions
 from az.net import OthelloNet
 from az.replay import ReplayBuffer, Sample
 from az.train import Trainer
-from config import TrainConfig
+from config import NetConfig, TrainConfig
+
+_TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
 
 
 def _net(size=6):
     torch.manual_seed(0)
-    return OthelloNet(board_size=size)
+    return OthelloNet(board_size=size, config=_TINY_NET)
 
 
 def _fixed_batch(size=6, n=16, seed=0):
@@ -94,7 +96,7 @@ def test_checkpoint_roundtrip(tmp_path):
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="keine CUDA-GPU")
 def test_train_step_on_gpu():
-    net = OthelloNet(board_size=6).cuda()
+    net = OthelloNet(board_size=6, config=_TINY_NET).cuda()
     trainer = Trainer(net, TrainConfig(batch_size=8), device="cuda")
     buf = ReplayBuffer(100)
     buf.add(_fixed_batch())

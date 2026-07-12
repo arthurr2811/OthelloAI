@@ -11,7 +11,9 @@ import torch
 from az.checkpoint import load_checkpoint
 from az.net import OthelloNet
 from az.pipeline import clone_net, run_training
-from config import EvalConfig, MCTSConfig, RunConfig
+from config import EvalConfig, MCTSConfig, NetConfig, RunConfig, SelfPlayConfig
+
+_TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
 
 
 def _tiny_config(tmp_path, n_iterations=1) -> RunConfig:
@@ -21,7 +23,10 @@ def _tiny_config(tmp_path, n_iterations=1) -> RunConfig:
         games_per_iteration=1,
         train_steps_per_iteration=3,
         baseline_games=2,
+        net=_TINY_NET,
         mcts=MCTSConfig(n_simulations=4),
+        # n_workers=1: kein Prozess-Pool im Test (Spawn wäre unnötig langsam).
+        selfplay=SelfPlayConfig(temperature_moves=3, n_parallel=2, n_workers=1),
         eval=EvalConfig(n_games=2, win_threshold=0.55, temperature_moves=3),
         checkpoint_dir=str(tmp_path / "ckpt"),
         log_dir=str(tmp_path / "logs"),
@@ -29,7 +34,7 @@ def _tiny_config(tmp_path, n_iterations=1) -> RunConfig:
 
 
 def test_clone_net_is_independent():
-    net = OthelloNet(board_size=6)
+    net = OthelloNet(board_size=6, config=_TINY_NET)
     clone = clone_net(net)
     x = torch.randn(2, 3, 6, 6)
     net.eval(); clone.eval()

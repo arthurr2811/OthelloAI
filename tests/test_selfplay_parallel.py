@@ -15,12 +15,14 @@ from az.encoding import num_actions
 from az.net import OthelloNet
 from az.replay import ReplayBuffer
 from az.selfplay_parallel import generate_games_parallel
-from config import MCTSConfig, SelfPlayConfig
+from config import MCTSConfig, NetConfig, SelfPlayConfig
+
+_TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
 
 
 def _net(size=6):
     torch.manual_seed(0)
-    return OthelloNet(board_size=size).eval()
+    return OthelloNet(board_size=size, config=_TINY_NET).eval()
 
 
 def test_produces_well_formed_samples():
@@ -78,7 +80,7 @@ def test_value_targets_are_consistent_per_outcome():
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="keine CUDA-GPU")
 def test_runs_on_gpu():
-    net = OthelloNet(board_size=6).eval().cuda()
+    net = OthelloNet(board_size=6, config=_TINY_NET).eval().cuda()
     samples = generate_games_parallel(
         net, size=6, n_games=4,
         mcts_config=MCTSConfig(n_simulations=10),

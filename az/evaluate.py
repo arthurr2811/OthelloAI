@@ -18,35 +18,11 @@ from dataclasses import dataclass
 import torch
 
 from az.arena_parallel import AgentPlayer, NetPlayer, play_match_parallel
-from az.mcts import NeuralMCTSAgent
 from az.net import OthelloNet
 from config import DEFAULT_EVAL, DEFAULT_MCTS, EvalConfig, MCTSConfig
-from othello.board import GameState  # noqa: F401  (dokumentiert die Spielabhängigkeit)
 
 from agents.arena import MatchResult
 from agents.base import Agent
-
-
-def make_agent(
-    net: OthelloNet,
-    name: str,
-    mcts_config: MCTSConfig = DEFAULT_MCTS,
-    eval_config: EvalConfig = DEFAULT_EVAL,
-    *,
-    device: str | torch.device | None = None,
-    seed: int | None = None,
-) -> NeuralMCTSAgent:
-    """Baut einen Evaluations-Agenten (explorative Eröffnung, sonst deterministisch)."""
-    agent = NeuralMCTSAgent(
-        net,
-        mcts_config,
-        device=device,
-        temperature=1.0,
-        temperature_moves=eval_config.temperature_moves,
-        seed=seed,
-    )
-    agent.name = name
-    return agent
 
 
 @dataclass

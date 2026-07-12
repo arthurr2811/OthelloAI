@@ -50,8 +50,8 @@ def test_mcts_takes_immediate_winning_corner():
 def test_mcts_beats_greedy():
     # Der zentrale Sanity-Check aus dem Plan: MCTS schlägt Greedy klar.
     # Seed-fest und daher deterministisch; wenige Sims/Spiele halten den Test
-    # schnell, MCTS dominiert Greedy trotzdem deutlich. Ein aussagekräftigerer
-    # Lauf (150 Sims, 30 Spiele -> 100%) steckt in scripts/arena_mcts.py.
+    # schnell, MCTS dominiert Greedy trotzdem deutlich (Referenzmessung:
+    # 150 Sims, 30 Spiele -> 100 %).
     mcts = MCTSAgent(n_simulations=30, seed=0)
     greedy = GreedyAgent(seed=1)
     result = play_match(mcts, greedy, n_games=12, size=8)
