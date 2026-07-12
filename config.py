@@ -60,6 +60,10 @@ class SelfPlayConfig:
     # Blatt-Bewertungen werden pro Runde zu *einem* Netz-Forward gebündelt – das
     # ist der Hebel, der die GPU auslastet (Batch-1-Inferenz war der Flaschenhals).
     n_parallel: int = 32
+    # Hebel C: Anzahl Self-Play-Prozesse (1 = kein Multiprocessing). Ab 2 teilen
+    # sich Worker-Prozesse die Partien einer Iteration (az/selfplay_mp.py) –
+    # greift den Single-Core-Engpass direkt an. Sinnvoll: Kernzahl minus ~2.
+    n_workers: int = 1
 
 
 @dataclass(frozen=True)
@@ -108,6 +112,32 @@ class RunConfig:
     selfplay: SelfPlayConfig = SelfPlayConfig()
     train: TrainConfig = TrainConfig()
     eval: EvalConfig = EvalConfig(n_games=20)
+
+
+# 8x8-Zielkonfiguration (Schritt 2.7). Skaliert die drei "Gratis"-Hebel aus dem
+# README: G (größeres Netz – die GPU hat Reserve), A (mehr parallele Partien pro
+# Iteration – bessere CPU/GPU-Überlappung, mehr Daten pro Iteration) und
+# B (Sims/Iterationen bewusst gewählt statt blind hochgedreht).
+# Eigene Checkpoint-/Log-Verzeichnisse, damit der 6x6-Stand unangetastet bleibt.
+RUN_8X8 = RunConfig(
+    board_size=8,
+    n_iterations=120,
+    games_per_iteration=96,          # A: mehr Partien je Iteration (6x6: 20)
+    train_steps_per_iteration=500,   # ~3 Sichtungen je neuem Sample bei Batch 256
+    baseline_games=10,
+    checkpoint_dir="checkpoints/8x8",
+    log_dir="logs/8x8",
+    net=NetConfig(channels=128, n_res_blocks=8, value_hidden=128),  # G (6x6: 64ch/4)
+    mcts=MCTSConfig(n_simulations=128),                             # B (6x6: 64)
+    selfplay=SelfPlayConfig(
+        temperature_moves=20,        # 8x8-Partien sind ~doppelt so lang wie 6x6
+        buffer_size=400_000,         # ~9 Iterationen Self-Play-Daten
+        n_parallel=96,               # A: alle Partien einer Iteration gleichzeitig
+        n_workers=6,                 # C: 6 von 8 Kernen (Rest: Hauptprozess + OS)
+    ),
+    train=TrainConfig(batch_size=256),
+    eval=EvalConfig(n_games=24),
+)
 
 
 DEFAULT_GAME = GameConfig()

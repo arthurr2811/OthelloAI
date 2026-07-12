@@ -205,7 +205,7 @@ Stellung eine Visit-Count-Verteilung.
       Batchgröße … bündelt alle Sub-Configs).
 - [x] Resume aus Checkpoint (`--resume best.pt`), Logging pro Iteration
       (`logs/iterations.csv` + `loss_iter_XXX.csv`).
-- [ ] **>>> NÄCHSTER SCHRITT (manuell, Arthur): 6×6-Lauf starten und beobachten.**
+- [x] **6×6-Lauf starten und beobachten.**
       `python scripts/train.py` (Defaults: 6×6, 40 Iterationen). Stärke gegen
       Baselines soll über die Iterationen steigen. Vorbereitung + Wiring stehen und
       sind getestet (`--smoke` läuft grün auf GPU); nur der eigentliche,
@@ -221,10 +221,19 @@ Stellung eine Visit-Count-Verteilung.
 
 **Ziel:** Das eigentliche Zielmodell.
 
-- [ ] Config hochskalieren (größeres Netz, mehr Sims, mehr Iterationen).
-- [ ] Self-Play parallelisieren, falls zu langsam (mehrere Spiele gleichzeitig,
-      Batched-Inferenz) — an die GPU angepasst.
-- [ ] Lauf über mehrere Tage, regelmäßig Checkpoints + Stärke-Kurve sichern.
+- [x] Config hochskalieren (größeres Netz, mehr Sims, mehr Iterationen):
+      `RUN_8X8`-Preset in `config.py` (Netz 128ch/8 Blöcke, 128 Sims, 96 Partien
+      parallel je Iteration, eigene Verzeichnisse `checkpoints/8x8` + `logs/8x8`),
+      aufrufbar via `python scripts/train.py --preset 8x8`. Wiring auf GPU getestet.
+- [x] Self-Play weiter parallelisieren: erster Mess-Lauf ohne C/D lag bei
+      hochgerechnet ~10–12 h (> 8-h-Budget) → **C** (Multiprocessing-Pool,
+      `az/selfplay_mp.py`, 6 Worker) und **D** (Numba-Kernel,
+      `othello/_kernels.py`, Äquivalenz-Test als Netz) umgesetzt.
+- [ ] **Mess-Lauf:** `python scripts/train.py --preset 8x8 --iterations 5`, dann
+      Spalte `seconds` in `logs/8x8/iterations.csv` auf 120 Iterationen
+      hochrechnen → muss klar unter 8 h landen (sonst Hebel E/F nachziehen).
+- [ ] Lauf über mehrere Tage, regelmäßig Checkpoints + Stärke-Kurve sichern
+      (Resume: `--preset 8x8 --resume checkpoints/8x8/best.pt`).
 
 **Fertig wenn:** Ein 8×8-Checkpoint schlägt Greedy und das reine MCTS deutlich —
 Kandidat für „schlägt Hobbyspieler".

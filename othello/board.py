@@ -16,6 +16,14 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+# Hebel D (siehe README): Numba-JIT-Kernel für die heißen Pfade. Optional –
+# ohne numba laufen die reinen Python-Implementierungen (identische Semantik,
+# per Äquivalenz-Test in tests/test_kernels.py abgesichert).
+try:
+    from othello import _kernels
+except ImportError:
+    _kernels = None
+
 # --- Spieler-/Feld-Konstanten ---
 BLACK = 1
 WHITE = -1
@@ -144,6 +152,14 @@ def legal_moves(board: np.ndarray, player: int) -> list[tuple[int, int]]:
     Ein Feld ist legal, wenn es leer ist und in mindestens einer Richtung
     gegnerische Steine einklammert.
     """
+    if _kernels is not None:
+        rows, cols = np.nonzero(_kernels.legal_moves_mask(board, player))
+        return [(int(r), int(c)) for r, c in zip(rows, cols)]
+    return _legal_moves_py(board, player)
+
+
+def _legal_moves_py(board: np.ndarray, player: int) -> list[tuple[int, int]]:
+    """Reine Python-Referenzimplementierung von :func:`legal_moves`."""
     size = board.shape[0]
     moves: list[tuple[int, int]] = []
     for r in range(size):
@@ -155,6 +171,13 @@ def legal_moves(board: np.ndarray, player: int) -> list[tuple[int, int]]:
 
 def has_legal_move(board: np.ndarray, player: int) -> bool:
     """True, wenn ``player`` irgendein legales Feld hat (schneller Abbruch)."""
+    if _kernels is not None:
+        return bool(_kernels.has_legal_move(board, player))
+    return _has_legal_move_py(board, player)
+
+
+def _has_legal_move_py(board: np.ndarray, player: int) -> bool:
+    """Reine Python-Referenzimplementierung von :func:`has_legal_move`."""
     size = board.shape[0]
     for r in range(size):
         for c in range(size):
@@ -171,6 +194,19 @@ def apply_move(
     Setzt den Stein auf das Feld und dreht alle eingeklammerten gegnerischen
     Steine um. Wirft ``ValueError`` bei einem illegalen Zug.
     """
+    if _kernels is not None:
+        r, c = move
+        n_flips, new_board = _kernels.apply_move(board, player, r, c)
+        if n_flips == 0:
+            raise ValueError(f"Illegaler Zug {move} für Spieler {player}")
+        return new_board
+    return _apply_move_py(board, player, move)
+
+
+def _apply_move_py(
+    board: np.ndarray, player: int, move: tuple[int, int]
+) -> np.ndarray:
+    """Reine Python-Referenzimplementierung von :func:`apply_move`."""
     flips = flips_for_move(board, player, move)
     if not flips:
         raise ValueError(f"Illegaler Zug {move} für Spieler {player}")
@@ -249,7 +285,7 @@ class GameState:
         existieren). Ansonsten wird das Board aktualisiert und gewechselt.
         """
         if move == PASS:
-            if legal_moves(self.board, self.current_player):
+            if has_legal_move(self.board, self.current_player):
                 raise ValueError("PASS unzulässig: es gibt legale Züge")
             return GameState(board=self.board, current_player=opponent(self.current_player))
         new_board = apply_move(self.board, self.current_player, move)

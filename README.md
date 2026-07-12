@@ -234,19 +234,29 @@ Optimierungshebel, nach Wirkung/Aufwand:
 | Hebel | Wirkung | Aufwand | Risiko | Status |
 |---|---|---|---|---|
 | **Batched Inferenz** (Self-Play + Eval parallel, Blätter bündeln) | hoch | – | – | **erledigt** |
-| **A – `n_parallel` & `games_per_iteration` hoch** (z. B. 64–128) | mittel–hoch (nutzt GPU-Reserve + CPU/GPU-Überlappung) | null (Config) | keins | offen |
-| **B – Sims/Iterationen bewusst wählen** (Plateau meiden, nicht über-trainieren) | mittel | null | keins | offen |
-| **C – Multiprocessing-Self-Play** über CPU-Kerne | **hoch** (× Kernzahl; idle Cores sind gratis Leistung) | mittel | mittel | geplant |
-| **D – Engine JIT-en (Numba)** auf `legal_moves`/`apply` | **hoch** (heißester Single-Core-Pfad) | mittel | mittel (Tests als Netz) | geplant |
+| **A – `n_parallel` & `games_per_iteration` hoch** (z. B. 64–128) | mittel–hoch (nutzt GPU-Reserve + CPU/GPU-Überlappung) | null (Config) | keins | **erledigt** (96/96 im Preset) |
+| **B – Sims/Iterationen bewusst wählen** (Plateau meiden, nicht über-trainieren) | mittel | null | keins | **erledigt** (128 Sims, 120 Iter.) |
+| **C – Multiprocessing-Self-Play** über CPU-Kerne | **hoch** (× Kernzahl; idle Cores sind gratis Leistung) | mittel | mittel | **erledigt** (`az/selfplay_mp.py`, 6 Worker im Preset) |
+| **D – Engine JIT-en (Numba)** auf `legal_moves`/`apply` | **hoch** (heißester Single-Core-Pfad) | mittel | mittel (Tests als Netz) | **erledigt** (`othello/_kernels.py` + Äquivalenz-Test) |
 | **E – Batched Engine** (alle Bretter als ein `(G,8,8)`-Array, Move-Gen vektorisiert) | hoch | hoch | mittel | Reserve |
 | **F – Bitboard** statt NumPy (Move-Gen als Bit-Ops) | mittel–hoch (überlappt mit D) | hoch | hoch (Engine-Rewrite) | Reserve |
-| **G – Größeres Netz** | *kein* Speedup, aber „gratis" dank GPU-Reserve → mehr Stärke | niedrig | keins | für 8×8 geplant |
+| **G – Größeres Netz** | *kein* Speedup, aber „gratis" dank GPU-Reserve → mehr Stärke | niedrig | keins | **erledigt** (128ch/8 Blöcke im Preset) |
 
-**Empfohlenes Vorgehen für 8×8:** erst einen kurzen Mess-Lauf (5 Iterationen) für
-echte Zahlen, dann **A + B** (gratis) und ein **größeres Netz (G)**. Reicht das
-nicht, **C und/oder D** – beide greifen die Single-Core-Wurzel an, von
-verschiedenen Seiten. E/F sind Reserve für den Fall, dass C+D nicht genügen; für
-den Projektumfang voraussichtlich nicht nötig. Nicht lohnend: GPU-% direkt jagen
+**A, B und G stecken im `RUN_8X8`-Preset** (`config.py`), Aufruf:
+`python scripts/train.py --preset 8x8` (Mess-Lauf: `--iterations 5`; Checkpoints
+und Logs landen getrennt in `checkpoints/8x8` bzw. `logs/8x8`).
+
+**Stand:** Ein erster Mess-Lauf ohne C/D lag hochgerechnet bei ~10–12 h für
+120 Iterationen — zu viel für das Zeitbudget (< 8 h am Stück). Deshalb sind
+**C und D** jetzt ebenfalls umgesetzt: **D** ersetzt die heißesten Engine-Pfade
+(`legal_moves`/`apply_move`/`has_legal_move`) durch Numba-JIT-Kernel — die reine
+Python-Engine bleibt als Fallback und Referenz erhalten, ein Äquivalenz-Test
+(`tests/test_kernels.py`) prüft beide auf Zufallspartien gegeneinander. **C**
+verteilt die Self-Play-Partien einer Iteration über einen persistenten
+Prozess-Pool (`az/selfplay_mp.py`, `n_workers` in der Config); jeder Worker
+fährt intern den gebündelten Scheduler mit eigener GPU-Inferenz. E/F bleiben
+Reserve; nach dem Mess-Lauf (5 Iterationen, `seconds`-Spalte hochrechnen)
+entscheidet sich, ob sie je gebraucht werden. Nicht lohnend: GPU-% direkt jagen
 oder das Netz mikro-optimieren – beides zielt am Engpass vorbei.
 
 ## Status
