@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Othello AI</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Othello&nbsp;AI</h1>
+      <p class="subtitle">Spiel gegen das trainierte AlphaZero-Netz</p>
+    </header>
+
+    <section class="controls">
+      <div class="presets">
+        <span class="presets-label">Preset:</span>
+        <div id="presets" class="preset-buttons"></div>
+      </div>
+
+      <div class="sliders">
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="sims">Simulationen&nbsp;<span class="info"
+              data-tip="Denkbudget der KI pro Zug. Mehr Simulationen = tiefere Suche = stärker.">?</span></label>
+            <span class="slider-val" id="sims-val">80</span>
+          </div>
+          <input type="range" id="sims" min="1" max="800" step="1" value="80" />
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="temp">Temperatur&nbsp;<span class="info"
+              data-tip="Zug-Zufall über die ganze Partie. 0 = immer der beste Zug (maximale Stärke). Je höher desto eher Spielt die KI schlechtere Züge.">?</span></label>
+            <span class="slider-val" id="temp-val">0.4</span>
+          </div>
+          <input type="range" id="temp" min="0" max="3" step="0.1" value="0.4" />
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="speed">Animationstempo&nbsp;<span class="info"
+              data-tip="Anzeige-Geschwindigkeit der Animationen Höher = schneller.">?</span></label>
+            <span class="slider-val" id="speed-val">1.0×</span>
+          </div>
+          <input type="range" id="speed" min="0.25" max="3" step="0.25" value="1" />
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <div class="control">
+          <label for="color">Deine Farbe</label>
+          <select id="color">
+            <option value="black">Schwarz (zieht zuerst)</option>
+            <option value="white">Weiß</option>
+          </select>
+        </div>
+        <div class="bottom-actions">
+          <button id="sound-toggle" class="icon-btn" title="Sound an/aus" aria-label="Sound an/aus">🔊</button>
+          <button id="new-game" class="primary">Neue Partie</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="scoreboard">
+      <div class="score" id="score-black">
+        <span class="disc disc-black"></span>
+        <span class="count" id="count-black">2</span>
+      </div>
+      <div class="status" id="status">Wähle Einstellungen und starte eine Partie.</div>
+      <div class="score" id="score-white">
+        <span class="count" id="count-white">2</span>
+        <span class="disc disc-white"></span>
+      </div>
+    </section>
+
+    <section class="board-wrap">
+      <div id="board" class="board"></div>
+      <button id="pass-btn" class="primary hidden">Passen</button>
+    </section>
+
+    <footer>
+      <span id="thinking" class="thinking hidden">KI denkt nach&hellip;</span>
+    </footer>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

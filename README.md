@@ -2,7 +2,7 @@
 
 Eine AlphaZero-artige Othello-KI (8×8), lokal auf GPU trainiert – ohne
 menschliche Partien, ohne einprogrammiertes Othello-Wissen. Dazu ein
-Web-Frontend zum Selberspielen (Phase 3, in Arbeit).
+Web-Frontend zum Selberspielen mit einstellbarer Spielstärke.
 
 Vorgehen und Projektfortschritt: siehe [`plan.md`](plan.md).
 
@@ -26,8 +26,8 @@ pytest
 othello/   # Spiel-Engine (reine Logik, kein ML) + Numba-Kernel für die Hotpaths
 agents/    # Referenzgegner: Random, Greedy, reines MCTS
 az/        # AlphaZero: Netz, PUCT-MCTS, Self-Play, Training, Evaluation, Pipeline
-web/       # FastAPI-Backend + Frontend (Phase 3)
-scripts/   # train.py (Trainings-Loop), measure.py (Stärke messen), check_env.py
+web/       # FastAPI-Backend (server.py) + statisches Frontend (static/)
+scripts/   # train.py (Training), measure.py (Stärke messen), serve.py (Frontend), check_env.py
 tests/     # pytest-Suite (Engine, Suche, Pipeline, Kernel-Äquivalenz)
 config.py  # zentrale Trainingskonfiguration (die Defaults = der echte 8x8-Lauf)
 ```
@@ -69,7 +69,7 @@ Suche" schaukelt sich von Zufallsspiel zu echtem Stellungsverständnis hoch.
 ## Training ausführen
 
 ```bash
-python scripts/train.py                                # Vollauf: 120 Iterationen, ~3,8 h
+python scripts/train.py                                # Vollauf: 120 Iterationen, ~4 h
 python scripts/train.py --resume checkpoints/best.pt   # abgebrochenen Lauf fortsetzen
 python scripts/train.py --smoke                        # schneller Wiring-Check
 python scripts/measure.py                              # Stärke: vs Random/Greedy/MCTS
@@ -101,12 +101,39 @@ das Netz mit 64 Sims/Zug Random und Greedy zu 100 %, reines MCTS mit 150 Sims zu
 ersetzt also grob den 6-fachen Suchaufwand. Gegen sein eigenes früheres Ich
 (Iteration 5) gewinnt es 91 % → messbarer Fortschritt über die Iterationen.
 
-**8×8 (Ziellauf):** in Arbeit – erste 5 Iterationen zeigen sauber fallenden
-Loss, 100 % gegen Greedy ab Iteration 1 und stabile ~114 s/Iteration.
+**8×8 (Ziellauf):** 120 Iterationen in **4,1 h** Wall-Clock (Ryzen 7 7800X3D +
+RTX 5070 Ti), Loss 5,15 → ~1,88, 52 der 120 Kandidaten via Gating angenommen.
+Das fertige Netz (128 Sims/Zug, `scripts/measure.py`):
+
+| Gegner              | Siegquote | W/L/D    |
+|---------------------|-----------|----------|
+| Random              | 100 %     | 40/0/0   |
+| Greedy              | 100 %     | 40/0/0   |
+| reines MCTS, 50 Sims  | 100 %   | 40/0/0   |
+| reines MCTS, 150 Sims | 100 %   | 40/0/0   |
+| reines MCTS, 400 Sims | 92,5 %  | 37/3/0   |
+
+Der aussagekräftige Wert ist die letzte Zeile: Das Netz schlägt reines MCTS mit
+dem **~3-fachen Suchbudget** klar – das gelernte Stellungsverständnis wiegt den
+Rechenvorteil des Gegners mehr als auf.
+
+## Selber spielen (Web-Frontend)
+
+```bash
+python scripts/serve.py --checkpoint scripts/checkpoints/best.pt
+python scripts/serve.py                                   # Kurzform, lädt checkpoints/best.pt
+```
+
+
+
+Dann [http://127.0.0.1:8000](http://127.0.0.1:8000) im Browser öffnen. Ein
+FastAPI-Backend (`web/server.py`) lädt den Checkpoint und liefert die KI-Züge
+(PUCT-MCTS + Netz); das Frontend (`web/static/`) ist reines HTML/CSS/JS ohne
+Build-Schritt.
 
 ## Status
 
 - Engine, Baselines, reines MCTS: fertig und getestet (Meilenstein 1)
 - AlphaZero-Pipeline auf 6×6 validiert (Meilenstein 2)
-- 8×8-Training: konfiguriert und gemessen, Vollauf steht an (Schritt 2.7)
-- Web-Frontend zum Selberspielen: als Nächstes (Phase 3)
+- 8×8-Ziellauf abgeschlossen: schlägt reines MCTS(400) zu 92,5 % (Schritt 2.7)
+- Web-Frontend zum Selberspielen mit einstellbarer Stärke: spielbar (Phase 3)
