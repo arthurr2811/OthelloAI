@@ -226,23 +226,21 @@ button.primary.danger { background: #f87171; color: #450a0a; }
 
 /* KI-Bewertungsleiste (Schwarz <-> Weiß, wie beim Schachcomputer). */
 .eval { margin-bottom: 14px; }
-.eval-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+.eval-caption {
+  text-align: center;
   font-size: 0.8rem;
   color: var(--muted);
   margin-bottom: 5px;
 }
-.eval-text { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .eval-bar {
   position: relative;
   width: 100%;
-  height: 16px;
-  border-radius: 8px;
+  height: 20px;
+  border-radius: 10px;
   overflow: hidden;
   background: #f1f5f9;                 /* Weiß-Seite */
-  border: 1px solid #475569;
+  /* Rahmen als Ring außen, damit die Innengeometrie exakt bleibt (Mitte = 50%). */
+  box-shadow: 0 0 0 1px #475569;
 }
 .eval-black {
   height: 100%;
@@ -256,9 +254,25 @@ button.primary.danger { background: #f87171; color: #450a0a; }
   position: absolute;
   top: 0; bottom: 0; left: 50%;
   width: 1px;
-  background: rgba(100, 116, 139, 0.7);
+  background: rgba(100, 116, 139, 0.6);
   transform: translateX(-0.5px);
 }
+/* Prozentzahlen im Balken. mix-blend-mode: difference invertiert die (weiße)
+   Schrift gegen den Untergrund – dadurch immer sichtbar, egal ob gerade der
+   schwarze oder der weiße Teil des Balkens dahinterliegt. */
+.eval-num {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+.eval-num-left { left: 9px; }
+.eval-num-right { right: 9px; }
 
 .board-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 

@@ -19,7 +19,9 @@ const el = {
   thinking: document.getElementById("thinking"),
   evalWrap: document.getElementById("eval"),
   evalBlack: document.getElementById("eval-black"),
-  evalText: document.getElementById("eval-text"),
+  evalCaption: document.getElementById("eval-caption"),
+  evalNumBlack: document.getElementById("eval-num-black"),
+  evalNumWhite: document.getElementById("eval-num-white"),
 };
 
 // Animations-Basiszeiten (ms) bei Tempo 1.0×. Alle werden durch `speed`
@@ -407,19 +409,23 @@ function updateEval() {
   }
   el.evalWrap.classList.remove("hidden");
   const v = Math.max(-1, Math.min(1, current.eval));   // + = Schwarz vorn
-  el.evalBlack.style.width = (((v + 1) / 2) * 100).toFixed(1) + "%";
+  let blackPct = ((v + 1) / 2) * 100;
+
+  // Solange die Partie läuft, nie 0 %/100 % zeigen – es bleibt immer Restunsicherheit.
+  if (!current.game_over) blackPct = Math.min(99, Math.max(1, blackPct));
+
+  el.evalBlack.style.width = blackPct.toFixed(1) + "%";
+  const black = Math.round(blackPct);
+  el.evalNumBlack.textContent = black + "%";
+  el.evalNumWhite.textContent = (100 - black) + "%";
 
   if (current.game_over) {
-    el.evalText.textContent =
+    el.evalCaption.textContent =
       current.winner === "draw" ? "Remis"
       : current.winner === "black" ? "Schwarz gewinnt"
       : "Weiß gewinnt";
-  } else if (Math.abs(v) < 0.05) {
-    el.evalText.textContent = "ausgeglichen";
-  } else if (v > 0) {
-    el.evalText.textContent = `Schwarz ${Math.round(((v + 1) / 2) * 100)} %`;
   } else {
-    el.evalText.textContent = `Weiß ${Math.round(((1 - v) / 2) * 100)} %`;
+    el.evalCaption.textContent = "KI-Bewertung";
   }
 }
 
@@ -479,7 +485,7 @@ function abortGame() {
   updateSettingsLock();
   refreshButton();
   el.status.className = "status";
-  el.status.textContent = "Partie abgebrochen – Einstellungen anpassen und neu starten.";
+  el.status.textContent = "Partie abgebrochen.";
 }
 
 function onPrimary() {
