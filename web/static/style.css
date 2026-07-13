@@ -224,6 +224,42 @@ button.primary.danger { background: #f87171; color: #450a0a; }
 .disc-black { background: #0f172a; border: 2px solid #64748b; }
 .disc-white { background: #f8fafc; border: 2px solid #cbd5e1; }
 
+/* KI-Bewertungsleiste (Schwarz <-> Weiß, wie beim Schachcomputer). */
+.eval { margin-bottom: 14px; }
+.eval-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.eval-text { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.eval-bar {
+  position: relative;
+  width: 100%;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;                 /* Weiß-Seite */
+  border: 1px solid #475569;
+}
+.eval-black {
+  height: 100%;
+  width: 50%;
+  background: #0f172a;                 /* Schwarz-Seite, wächst von links */
+  transition: width 0.45s ease;
+}
+/* Mittelmarkierung (ausgeglichen). */
+.eval-bar::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 1px;
+  background: rgba(100, 116, 139, 0.7);
+  transform: translateX(-0.5px);
+}
+
 .board-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 
 .board {

@@ -33,6 +33,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from az.checkpoint import load_checkpoint  # noqa: E402
+from az.encoding import encode_state  # noqa: E402
 from az.mcts import NeuralMCTS  # noqa: E402
 from config import MCTSConfig  # noqa: E402
 from othello.board import (  # noqa: E402
@@ -113,6 +114,21 @@ class AIEngine:
         """KI-Zug für ``state`` mit gegebenem Sim-Budget und Temperatur."""
         with self._lock:
             return self._searcher(n_simulations).select_move(state, temperature=temperature)
+
+    def evaluate(self, state: GameState) -> float:
+        """Value-Head-Bewertung der Stellung, umgerechnet auf **Schwarz-Sicht**.
+
+        Das Netz bewertet aus Sicht des Spielers am Zug; hier auf eine feste
+        Perspektive (Schwarz) normiert, damit die Frontend-Leiste konsistent ist:
+        +1 = Schwarz gewinnt sicher, -1 = Weiß gewinnt sicher, 0 = ausgeglichen.
+        Ein einzelner Forward-Pass (kein MCTS) – billig genug pro Stellung.
+        """
+        x = torch.from_numpy(encode_state(state)).unsqueeze(0).to(self.device)
+        with self._lock:
+            with torch.no_grad():
+                _, value = self.net(x)
+        v = float(value[0])
+        return v if state.current_player == BLACK else -v
 
 
 # --- Partie-Verwaltung ----------------------------------------------------
@@ -200,6 +216,13 @@ def _serialize(game: Game) -> dict:
         w = state.winner()
         winner = {BLACK: "black", WHITE: "white", 0: "draw"}[w]
 
+    # KI-Bewertung der Stellung aus Schwarz-Sicht in [-1, 1]. Bei Spielende der
+    # echte Ausgang statt der (dann bedeutungslosen) Netz-Schätzung.
+    if terminal:
+        eval_black = 1.0 if winner == "black" else (-1.0 if winner == "white" else 0.0)
+    else:
+        eval_black = engine.evaluate(state)
+
     return {
         "board": state.board.astype(int).tolist(),
         "board_size": state.size,
@@ -214,6 +237,7 @@ def _serialize(game: Game) -> dict:
         "counts": {"black": counts[BLACK], "white": counts[WHITE]},
         "game_over": terminal,
         "winner": winner,
+        "eval": round(eval_black, 4),
     }
 
 

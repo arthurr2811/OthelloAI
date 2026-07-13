@@ -17,6 +17,9 @@ const el = {
   countWhite: document.getElementById("count-white"),
   passBtn: document.getElementById("pass-btn"),
   thinking: document.getElementById("thinking"),
+  evalWrap: document.getElementById("eval"),
+  evalBlack: document.getElementById("eval-black"),
+  evalText: document.getElementById("eval-text"),
 };
 
 // Animations-Basiszeiten (ms) bei Tempo 1.0×. Alle werden durch `speed`
@@ -369,6 +372,7 @@ function finishTurn() {
   el.passBtn.classList.toggle("hidden", !current.must_pass);
   updateSettingsLock();   // bei Partieende wieder freigeben
   refreshButton();
+  updateEval();
   updateStatus();
 }
 
@@ -393,6 +397,30 @@ function updateStatus() {
   if (current.must_pass) el.status.textContent = "Kein legaler Zug – du musst passen.";
   else if (current.human_turn) el.status.textContent = "Du bist am Zug.";
   else el.status.textContent = "KI ist am Zug…";
+}
+
+// Schach-artige Bewertungsleiste aus der Netz-Value (Schwarz-Sicht, [-1, 1]).
+function updateEval() {
+  if (!current || typeof current.eval !== "number") {
+    el.evalWrap.classList.add("hidden");
+    return;
+  }
+  el.evalWrap.classList.remove("hidden");
+  const v = Math.max(-1, Math.min(1, current.eval));   // + = Schwarz vorn
+  el.evalBlack.style.width = (((v + 1) / 2) * 100).toFixed(1) + "%";
+
+  if (current.game_over) {
+    el.evalText.textContent =
+      current.winner === "draw" ? "Remis"
+      : current.winner === "black" ? "Schwarz gewinnt"
+      : "Weiß gewinnt";
+  } else if (Math.abs(v) < 0.05) {
+    el.evalText.textContent = "ausgeglichen";
+  } else if (v > 0) {
+    el.evalText.textContent = `Schwarz ${Math.round(((v + 1) / 2) * 100)} %`;
+  } else {
+    el.evalText.textContent = `Weiß ${Math.round(((1 - v) / 2) * 100)} %`;
+  }
 }
 
 function setThinking(on) {
@@ -447,6 +475,7 @@ function abortGame() {
   setThinking(false);
   if (cells.length) { clearHints(); clearLastAI(); }
   el.passBtn.classList.add("hidden");
+  el.evalWrap.classList.add("hidden");
   updateSettingsLock();
   refreshButton();
   el.status.className = "status";
@@ -472,6 +501,7 @@ async function sendMove(move) {
     current = res;
     await animateSteps(res.steps || []);
     if (myGen !== gen) return;
+    updateEval();              // Leiste schon nach dem Menschzug aktualisieren
 
     // 2) Erst danach die KI denken lassen und ihre Antwort animieren.
     if (!current.game_over && !current.human_turn) {
