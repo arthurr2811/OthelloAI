@@ -4,10 +4,13 @@ Die Defaults aus :class:`config.RunConfig` sind die echte Trainingskonfiguration
 alle wichtigen Größen sind per Flag überschreibbar.
 
 Aufruf:
-    python scripts/train.py                                # Vollauf (~3,8 h)
+    python scripts/train.py                                # Vollauf (~4 h)
     python scripts/train.py --iterations 5                 # kurzer Mess-Lauf
     python scripts/train.py --resume checkpoints/best.pt   # Lauf fortsetzen
     python scripts/train.py --smoke                        # Wiring-Check (Minuten)
+
+Checkpoints und Logs landen unter ``checkpoints/`` bzw. ``logs/`` in der
+Projektwurzel – unabhängig davon, aus welchem Verzeichnis gestartet wird.
 """
 
 from __future__ import annotations

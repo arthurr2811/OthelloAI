@@ -1,9 +1,8 @@
 """Gebündelter, paralleler Self-Play – der GPU-Auslastungs-Fix.
 
-Das sequenzielle Self-Play (:mod:`az.selfplay`) spielt eine Partie nach der
-anderen und bewertet in jeder MCTS-Simulation *ein* Brett mit Batch-Größe 1.
-Bei einem winzigen Netz dominiert dann der CPU↔GPU-Sync – die GPU wartet die
-meiste Zeit.
+Naives Self-Play spielt eine Partie nach der anderen und bewertet in jeder
+MCTS-Simulation *ein* Brett mit Batch-Größe 1. Bei einem kleinen Netz dominiert
+dann der CPU↔GPU-Sync – die GPU wartet die meiste Zeit.
 
 Hier laufen viele Partien **gleichzeitig**. Der Scheduler treibt in jeder Runde
 jede aktive Partie bis genau zu dem Punkt, an dem sie eine Netz-Bewertung braucht

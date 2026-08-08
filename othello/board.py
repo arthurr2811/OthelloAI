@@ -6,17 +6,17 @@ Konvention:
      0  = leeres Feld
 
 Das Board ist ein 2D-NumPy-Array (int8) der Kantenlänge ``size``. Bewusst ein
-Array statt Bitboard – Klarheit vor Speed. Bitboard-Optimierung erst, falls
-Self-Play zum Engpass wird (siehe plan.md).
+Array statt Bitboard – Klarheit vor Speed. Für die heißen Pfade gibt es statt
+einer Bitboard-Umstellung Numba-Kernel (siehe unten).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
-# Hebel D (siehe README): Numba-JIT-Kernel für die heißen Pfade. Optional –
+# Numba-JIT-Kernel für die heißen Pfade (siehe README, "Performance"). Optional –
 # ohne numba laufen die reinen Python-Implementierungen (identische Semantik,
 # per Äquivalenz-Test in tests/test_kernels.py abgesichert).
 try:

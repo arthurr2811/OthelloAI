@@ -31,7 +31,7 @@ from az.replay import ReplayBuffer
 from az.selfplay_mp import SelfPlayPool
 from az.selfplay_parallel import generate_games_parallel
 from az.train import Trainer
-from config import DEFAULT_RUN, RunConfig
+from config import DEFAULT_RUN, RunConfig, project_path
 
 from agents.simple import GreedyAgent
 
@@ -74,8 +74,9 @@ def _init_best_net(
     config: RunConfig, device: torch.device, resume: str | Path | None, log
 ) -> tuple[OthelloNet, int]:
     """Lädt das Bestmodell (Resume) oder legt ein frisches an. Rückgabe: (net, start_iteration)."""
-    checkpoint_dir = Path(config.checkpoint_dir)
+    checkpoint_dir = project_path(config.checkpoint_dir)
     if resume is not None:
+        resume = project_path(resume)
         best_net, extra = load_checkpoint(resume, device)
         start = int(extra.get("iteration", -1)) + 1
         log(f"Resume aus {resume} (weiter ab Iteration {start}).")
@@ -103,15 +104,15 @@ def run_training(
     log(f"Device: {device} | Brett {config.board_size}x{config.board_size} | "
         f"{config.n_iterations} Iterationen")
 
-    checkpoint_dir = Path(config.checkpoint_dir)
-    log_dir = Path(config.log_dir)
+    checkpoint_dir = project_path(config.checkpoint_dir)
+    log_dir = project_path(config.log_dir)
     rng = np.random.default_rng(config.seed)
 
     best_net, start_iter = _init_best_net(config, device, resume, log)
     buffer = ReplayBuffer(config.selfplay.buffer_size)
     iter_logger = _IterationLogger(log_dir / "iterations.csv")
 
-    # Hebel C: ab 2 Workern verteilt ein persistenter Prozess-Pool die
+    # Ab 2 Workern verteilt ein persistenter Prozess-Pool die
     # Self-Play-Partien über die CPU-Kerne (az/selfplay_mp.py). try/finally,
     # damit die Worker-Prozesse auch bei Abbruch (Ctrl+C) beendet werden.
     pool = SelfPlayPool(config.selfplay.n_workers) if config.selfplay.n_workers > 1 else None

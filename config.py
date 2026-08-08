@@ -11,6 +11,21 @@ Gemessen auf Ryzen 7 7800X3D + RTX 5070 Ti: ~114 s pro Iteration,
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+
+# Projektwurzel (Verzeichnis dieser Datei). Alle relativen Pfade in den Configs
+# und Skripten werden dagegen aufgelöst – damit landen Checkpoints und Logs
+# immer an derselben Stelle, egal aus welchem Verzeichnis gestartet wird.
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+# Das ausgelieferte, fertig trainierte Netz (im Repo eingecheckt).
+DEFAULT_CHECKPOINT = "models/best.pt"
+
+
+def project_path(path: str | Path) -> Path:
+    """Löst ``path`` gegen die Projektwurzel auf; absolute Pfade bleiben unberührt."""
+    p = Path(path)
+    return p if p.is_absolute() else PROJECT_ROOT / p
 
 
 @dataclass(frozen=True)
@@ -94,6 +109,7 @@ class RunConfig:
     baseline_games: int = 10              # Partien gegen Greedy für die Stärke-Kurve
     seed: int = 0
 
+    # Relativ = gegen die Projektwurzel (siehe project_path).
     checkpoint_dir: str = "checkpoints"
     log_dir: str = "logs"
 

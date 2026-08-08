@@ -1,4 +1,4 @@
-"""Numba-JIT-Kernel für die heißen Engine-Pfade (Hebel D aus dem README).
+"""Numba-JIT-Kernel für die heißen Engine-Pfade.
 
 Profil des Trainings: Der Engpass ist Single-Core-Python – und davon entfällt
 der Löwenanteil auf ``legal_moves``/``apply_move``/``has_legal_move`` (pro

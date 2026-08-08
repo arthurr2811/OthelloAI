@@ -1,4 +1,4 @@
-"""Multiprocessing-Self-Play (Hebel C aus dem README): Partien über CPU-Kerne verteilen.
+"""Multiprocessing-Self-Play: Partien über die CPU-Kerne verteilen.
 
 Der gebündelte Self-Play (:mod:`az.selfplay_parallel`) ist Single-Core: MCTS-Baum
 und Engine laufen in *einem* Python-Prozess, und genau diese CPU-Arbeit ist der

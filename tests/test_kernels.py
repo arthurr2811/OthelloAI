@@ -1,4 +1,4 @@
-"""Äquivalenz-Tests: Numba-Kernel vs. reine Python-Engine (Sicherheitsnetz für Hebel D).
+"""Äquivalenz-Tests: Numba-Kernel vs. reine Python-Engine.
 
 Die JIT-Kernel (othello/_kernels.py) müssen sich auf *jeder* erreichbaren
 Stellung exakt wie die Python-Referenz verhalten – Zufallspartien decken

@@ -11,7 +11,10 @@ import torch
 from az.checkpoint import load_checkpoint
 from az.net import OthelloNet
 from az.pipeline import clone_net, run_training
-from config import EvalConfig, MCTSConfig, NetConfig, RunConfig, SelfPlayConfig
+from config import (
+    DEFAULT_CHECKPOINT, PROJECT_ROOT, EvalConfig, MCTSConfig, NetConfig,
+    RunConfig, SelfPlayConfig, project_path,
+)
 
 _TINY_NET = NetConfig(channels=16, n_res_blocks=2, value_hidden=16)
 
@@ -31,6 +34,25 @@ def _tiny_config(tmp_path, n_iterations=1) -> RunConfig:
         checkpoint_dir=str(tmp_path / "ckpt"),
         log_dir=str(tmp_path / "logs"),
     )
+
+
+def test_relative_paths_resolve_against_project_root(tmp_path, monkeypatch):
+    """Checkpoints/Logs müssen unabhängig vom Arbeitsverzeichnis landen.
+
+    Sonst verstreuen sich Artefakte über die Verzeichnisse, aus denen man die
+    Skripte gerade gestartet hat – und die Default-Pfade der Skripte greifen ins
+    Leere.
+    """
+    monkeypatch.chdir(tmp_path)
+    assert project_path("checkpoints") == PROJECT_ROOT / "checkpoints"
+    assert project_path(DEFAULT_CHECKPOINT) == PROJECT_ROOT / "models" / "best.pt"
+    # Absolute Pfade (z. B. tmp_path in den Tests) bleiben unangetastet.
+    assert project_path(tmp_path / "ckpt") == tmp_path / "ckpt"
+
+
+def test_shipped_model_is_present():
+    """Das ausgelieferte Netz gehört ins Repo – ohne es läuft das Frontend nicht."""
+    assert project_path(DEFAULT_CHECKPOINT).exists()
 
 
 def test_clone_net_is_independent():

@@ -1,1 +1,1 @@
-"""Bots: random, greedy, mcts, alphazero."""
+"""Referenzgegner: Random, Greedy, reines UCT-MCTS."""

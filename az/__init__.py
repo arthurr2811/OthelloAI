@@ -1,1 +1,1 @@
-"""AlphaZero: netz, mcts, selfplay, train, evaluate."""
+"""AlphaZero: Netz, PUCT-MCTS, Self-Play, Training, Evaluation, Pipeline."""

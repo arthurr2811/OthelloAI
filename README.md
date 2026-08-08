@@ -4,7 +4,9 @@ Eine AlphaZero-artige Othello-KI (8×8), lokal auf GPU trainiert – ohne
 menschliche Partien, ohne einprogrammiertes Othello-Wissen. Dazu ein
 Web-Frontend zum Selberspielen mit einstellbarer Spielstärke.
 
-Vorgehen und Projektfortschritt: siehe [`plan.md`](plan.md).
+Das fertig trainierte Netz liegt als [`models/best.pt`](models/best.pt) im Repo –
+zum Spielen ist kein eigenes Training nötig. Wie das Projekt entstanden ist
+(Phasen, Zwischenergebnisse, Entscheidungen): [`docs/plan.md`](docs/plan.md).
 
 ## Setup
 
@@ -20,6 +22,24 @@ python scripts/check_env.py   # erwartet: CUDA verfügbar = True
 pytest
 ```
 
+Zum Spielen genügt eine CPU; nur das Training braucht die GPU sinnvollerweise.
+
+## Selber spielen
+
+```bash
+python scripts/serve.py
+```
+
+Dann [http://127.0.0.1:8000](http://127.0.0.1:8000) im Browser öffnen. Farbe und
+Spielstärke (Denkbudget + Zug-Zufall) sind im Frontend einstellbar; eine
+Bewertungsleiste zeigt live die Einschätzung des Value-Heads.
+
+Ein FastAPI-Backend (`web/server.py`) lädt den Checkpoint und liefert die
+KI-Züge (PUCT-MCTS + Netz); das Frontend (`web/static/`) ist reines HTML/CSS/JS
+ohne Build-Schritt. Ein anderes Netz spielt man mit
+`--checkpoint checkpoints/iter_100.pt` (relative Pfade gelten ab der
+Projektwurzel).
+
 ## Projektstruktur
 
 ```
@@ -28,6 +48,7 @@ agents/    # Referenzgegner: Random, Greedy, reines MCTS
 az/        # AlphaZero: Netz, PUCT-MCTS, Self-Play, Training, Evaluation, Pipeline
 web/       # FastAPI-Backend (server.py) + statisches Frontend (static/)
 scripts/   # train.py (Training), measure.py (Stärke messen), serve.py (Frontend), check_env.py
+models/    # das ausgelieferte, fertig trainierte Netz (best.pt)
 tests/     # pytest-Suite (Engine, Suche, Pipeline, Kernel-Äquivalenz)
 config.py  # zentrale Trainingskonfiguration (die Defaults = der echte 8x8-Lauf)
 ```
@@ -75,8 +96,9 @@ python scripts/train.py --smoke                        # schneller Wiring-Check
 python scripts/measure.py                              # Stärke: vs Random/Greedy/MCTS
 ```
 
-Alle Parameter (Netzgröße, Sims, Partien, Worker …) liegen in `config.py`;
-jede Iteration schreibt Checkpoint + Kennzahlen (`logs/iterations.csv`).
+Alle Parameter (Netzgröße, Sims, Partien, Worker …) liegen in `config.py`; jede
+Iteration schreibt Checkpoint + Kennzahlen nach `checkpoints/` und `logs/` in der
+Projektwurzel – unabhängig vom Aufrufort.
 
 ## Performance
 
@@ -105,35 +127,18 @@ ersetzt also grob den 6-fachen Suchaufwand. Gegen sein eigenes früheres Ich
 RTX 5070 Ti), Loss 5,15 → ~1,88, 52 der 120 Kandidaten via Gating angenommen.
 Das fertige Netz (128 Sims/Zug, `scripts/measure.py`):
 
-| Gegner              | Siegquote | W/L/D    |
-|---------------------|-----------|----------|
-| Random              | 100 %     | 40/0/0   |
-| Greedy              | 100 %     | 40/0/0   |
-| reines MCTS, 50 Sims  | 100 %   | 40/0/0   |
-| reines MCTS, 150 Sims | 100 %   | 40/0/0   |
-| reines MCTS, 400 Sims | 92,5 %  | 37/3/0   |
+| Gegner                | Siegquote | W/L/D  |
+|-----------------------|-----------|--------|
+| Random                | 100 %     | 40/0/0 |
+| Greedy                | 100 %     | 40/0/0 |
+| reines MCTS, 50 Sims  | 100 %     | 40/0/0 |
+| reines MCTS, 150 Sims | 100 %     | 40/0/0 |
+| reines MCTS, 400 Sims | 92,5 %    | 37/3/0 |
 
 Der aussagekräftige Wert ist die letzte Zeile: Das Netz schlägt reines MCTS mit
 dem **~3-fachen Suchbudget** klar – das gelernte Stellungsverständnis wiegt den
 Rechenvorteil des Gegners mehr als auf.
 
-## Selber spielen (Web-Frontend)
-
-```bash
-python scripts/serve.py --checkpoint scripts/checkpoints/best.pt
-python scripts/serve.py                                   # Kurzform, lädt checkpoints/best.pt
-```
-
-
-
-Dann [http://127.0.0.1:8000](http://127.0.0.1:8000) im Browser öffnen. Ein
-FastAPI-Backend (`web/server.py`) lädt den Checkpoint und liefert die KI-Züge
-(PUCT-MCTS + Netz); das Frontend (`web/static/`) ist reines HTML/CSS/JS ohne
-Build-Schritt.
-
-## Status
-
-- Engine, Baselines, reines MCTS: fertig und getestet (Meilenstein 1)
-- AlphaZero-Pipeline auf 6×6 validiert (Meilenstein 2)
-- 8×8-Ziellauf abgeschlossen: schlägt reines MCTS(400) zu 92,5 % (Schritt 2.7)
-- Web-Frontend zum Selberspielen mit einstellbarer Stärke: spielbar (Phase 3)
+**Praxistest:** Ab Stufe „Mittel" (80 Simulationen/Zug) gewinnt der Autor
+zuverlässig nicht mehr gegen die KI – womit das Projektziel „schlägt einen
+menschlichen Hobbyspieler" erreicht ist.

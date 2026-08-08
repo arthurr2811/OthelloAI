@@ -1,4 +1,4 @@
-"""Tests für das Multiprocessing-Self-Play (Hebel C, az/selfplay_mp.py).
+"""Tests für das Multiprocessing-Self-Play (az/selfplay_mp.py).
 
 Winzige Budgets und CPU-Device: geprüft wird die Verteil-Mechanik (Spawn,
 Gewichte-Transfer, Sample-Rückgabe), nicht die Spielstärke.

@@ -1,6 +1,6 @@
 """FastAPI-Inferenz-Backend zum Selberspielen gegen das trainierte Netz.
 
-Lädt einen Checkpoint (Default: ``checkpoints/best.pt``) und stellt eine kleine
+Lädt einen Checkpoint (Default: ``models/best.pt``) und stellt eine kleine
 JSON-API bereit, die ein Browser-Frontend (``web/static/``) bedient:
 
     POST /api/new_game   -> neue Partie (Farbe + Schwierigkeit wählbar)
@@ -35,7 +35,7 @@ from pydantic import BaseModel  # noqa: E402
 from az.checkpoint import load_checkpoint  # noqa: E402
 from az.encoding import encode_state  # noqa: E402
 from az.mcts import NeuralMCTS  # noqa: E402
-from config import MCTSConfig  # noqa: E402
+from config import DEFAULT_CHECKPOINT, MCTSConfig, project_path  # noqa: E402
 from othello.board import (  # noqa: E402
     BLACK, PASS, WHITE, GameState, disc_counts, flips_for_move,
 )
@@ -66,7 +66,7 @@ PRESETS: dict[str, dict] = {
 }
 DEFAULT_PRESET = "medium"
 
-CHECKPOINT_PATH = os.environ.get("OTHELLO_CHECKPOINT", "checkpoints/best.pt")
+CHECKPOINT_PATH = os.environ.get("OTHELLO_CHECKPOINT", DEFAULT_CHECKPOINT)
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -82,12 +82,12 @@ class AIEngine:
     """
 
     def __init__(self, checkpoint: str | Path) -> None:
-        path = Path(checkpoint)
+        path = project_path(checkpoint)
         if not path.exists():
             raise FileNotFoundError(
-                f"Checkpoint nicht gefunden: {path.resolve()}\n"
-                f"Tipp: aus dem Verzeichnis mit 'checkpoints/' starten oder "
-                f"OTHELLO_CHECKPOINT setzen."
+                f"Checkpoint nicht gefunden: {path}\n"
+                f"Tipp: OTHELLO_CHECKPOINT setzen oder scripts/serve.py "
+                f"--checkpoint verwenden."
             )
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.net, self.extra = load_checkpoint(path, self.device)

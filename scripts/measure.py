@@ -9,8 +9,8 @@ Checkpoint). Damit lässt sich sagen, *wie* stark das Modell wirklich ist und ob
 es über die Iterationen zugelegt hat.
 
 Beispiele:
-    python scripts/measure.py                                   # best.pt vs Random/Greedy/MCTS
-    python scripts/measure.py --checkpoint checkpoints/best.pt --games 60
+    python scripts/measure.py                                   # models/best.pt vs Random/Greedy/MCTS
+    python scripts/measure.py --checkpoint checkpoints/iter_100.pt --games 60
     python scripts/measure.py --mcts-sims 50,150,400 --sims 64
     python scripts/measure.py --vs-checkpoint checkpoints/iter_005.pt  # Fortschritt ggü. früh
 
@@ -30,7 +30,7 @@ import torch  # noqa: E402
 
 from az.arena_parallel import AgentPlayer, NetPlayer, play_match_parallel  # noqa: E402
 from az.checkpoint import load_checkpoint  # noqa: E402
-from config import DEFAULT_RUN, MCTSConfig  # noqa: E402
+from config import DEFAULT_CHECKPOINT, DEFAULT_RUN, MCTSConfig, project_path  # noqa: E402
 
 from agents.mcts import MCTSAgent  # noqa: E402
 from agents.simple import GreedyAgent, RandomAgent  # noqa: E402
@@ -50,8 +50,8 @@ def _net_player(net, name, sims, temperature_moves, device, seed):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Stärke eines Othello-Checkpoints messen")
-    parser.add_argument("--checkpoint", type=str, default="checkpoints/best.pt",
-                        help="Pfad zum zu messenden Netz (.pt)")
+    parser.add_argument("--checkpoint", type=str, default=DEFAULT_CHECKPOINT,
+                        help="Pfad zum zu messenden Netz (.pt); relativ = ab Projektwurzel")
     parser.add_argument("--games", type=int, default=40, help="Partien pro Match (gerade Zahl)")
     parser.add_argument("--sims", type=int, default=DEFAULT_RUN.mcts.n_simulations,
                         help="MCTS-Simulationen des Netz-Spielers pro Zug")
@@ -67,11 +67,11 @@ def main() -> int:
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    ckpt_path = Path(args.checkpoint)
+    ckpt_path = project_path(args.checkpoint)
     if not ckpt_path.exists():
-        print(f"FEHLER: Checkpoint nicht gefunden: {ckpt_path.resolve()}")
-        print("Tipp: aus dem Verzeichnis starten, in dem 'checkpoints/' liegt "
-              "(oder --checkpoint mit vollem Pfad).")
+        print(f"FEHLER: Checkpoint nicht gefunden: {ckpt_path}")
+        print("Tipp: --checkpoint mit einem existierenden Pfad angeben "
+              "(relativ zur Projektwurzel oder absolut).")
         return 1
 
     net, extra = load_checkpoint(ckpt_path, device)
@@ -91,7 +91,7 @@ def main() -> int:
         opponents.append((f"MCTS({s})", AgentPlayer(MCTSAgent(n_simulations=s, seed=args.seed))))
 
     if args.vs_checkpoint is not None:
-        vs_net, vs_extra = load_checkpoint(args.vs_checkpoint, device)
+        vs_net, vs_extra = load_checkpoint(project_path(args.vs_checkpoint), device)
         vs_it = vs_extra.get("iteration", "?")
         vs_player = _net_player(vs_net, f"ckpt(iter={vs_it})", args.sims,
                                 args.temperature_moves, device, args.seed + 1)

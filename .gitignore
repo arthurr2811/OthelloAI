@@ -225,5 +225,9 @@ checkpoints/
 runs/
 logs/
 
+# Ausnahme: das fertig trainierte Modell gehört ins Repo (9 MB) – ohne es
+# müsste man erst 4 h trainieren, um das Frontend starten zu können.
+!models/best.pt
+
 # PyCharm / IDE
 .idea/
