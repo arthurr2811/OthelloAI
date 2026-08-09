@@ -1,4 +1,4 @@
-"""Gebündelte, parallele Arena für die Evaluation (Gating + Baseline).
+"""Parallele Arena für die Evaluation (Gating + Baseline).
 
 Analog zu :mod:`az.selfplay_parallel`, aber für *Matches* zweier Spieler statt
 Self-Play.
@@ -27,7 +27,7 @@ from agents.base import Agent
 
 
 class NetPlayer:
-    """Ein Netz-Spieler: PUCT-MCTS mit gebündelter Blatt-Bewertung.
+    """Ein Netz-Spieler: PUCT-MCTS mit Blatt-Bewertung.
 
     Kein Wurzel-Rauschen (reines Spiel). Temperatur-Schedule wie
     :class:`~az.mcts.NeuralMCTSAgent`: die ersten ``temperature_moves`` Züge werden
@@ -88,14 +88,14 @@ class _Worker:
         self.player_a = player_a
         self.player_b = player_b
 
-        self.state: GameState | None = None
+        self.state = None                      # GameState, solange eine Partie läuft
         self.a_is_black = True
         self.black = player_a
         self.white = player_b
 
-        self.root: _Node | None = None
-        self.current: NetPlayer | None = None   # Netz-Spieler, der gerade sucht
-        self.pending: _Node | None = None
+        self.root = None                       # _Node: Wurzel der laufenden Suche
+        self.current = None                    # NetPlayer, der gerade sucht
+        self.pending = None                    # _Node: Blatt, das auf Bewertung wartet
         self.sims_done = 0
         self.plies = 0
         self.done = False
@@ -131,20 +131,20 @@ class _Worker:
                 continue
 
             mcts = self.current.mcts
-            leaf = mcts._select_leaf(self.root)
+            leaf = mcts.select_leaf(self.root)
             self.sims_done += 1
             if leaf.state.is_terminal():
-                mcts._backprop(leaf, mcts._terminal_value(leaf.state))
+                mcts.backprop(leaf, mcts.terminal_value(leaf.state))
                 continue
             self.pending = leaf
             return self.current, leaf.state
 
     def apply(self, priors: np.ndarray, value: float) -> None:
-        """Speist die Bewertung des zuletzt gemeldeten Blatts zurück (Expansion + Backprop)."""
+        """Speist die Bewertung zurück (Expansion + Backprop)."""
         node = self.pending
         assert node is not None and self.current is not None
-        self.current.mcts._expand_with_priors(node, priors)
-        self.current.mcts._backprop(node, value)
+        self.current.mcts.expand_with_priors(node, priors)
+        self.current.mcts.backprop(node, value)
         self.pending = None
 
     # --- interne Ablaufsteuerung ---
@@ -198,11 +198,11 @@ class _Worker:
         player = self.current
         move_number = int(np.count_nonzero(self.state.board)) - 4
         temp = player.temperature if move_number < player.temperature_moves else 0.0
-        pi = NeuralMCTS._visit_distribution(self.root, temp)
+        pi = NeuralMCTS.visit_distribution(self.root, temp)
         if temp == 0:
             index = int(np.argmax(pi))
         else:
-            index = int(player.mcts._rng.choice(len(pi), p=pi))
+            index = int(player.mcts.rng.choice(len(pi), p=pi))
         self.state = self.state.apply(index_to_move(index, self.size))
         self.plies += 1
         self.root = None
@@ -247,8 +247,8 @@ def play_match_parallel(
 ) -> MatchResult:
     """Spielt ``n_games`` Partien A vs. B gebündelt; Startfarbe wechselt pro Partie.
 
-    Netz-Blätter werden pro Runde nach Netz gruppiert und je in *einem* Forward-Pass
-    ausgewertet. Rückgabe: :class:`~agents.arena.MatchResult` aus Sicht von A –
+    Werden pro Runde nach Netz gruppiert und je in *einem* Forward-Pass
+    ausgewertet (beschleunigt das Training). Rückgabe: :class:`~agents.arena.MatchResult` aus Sicht von A –
     identische Semantik zu :func:`agents.arena.play_match`.
     """
     if device is None:

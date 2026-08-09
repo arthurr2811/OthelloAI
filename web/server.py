@@ -9,8 +9,6 @@ JSON-API bereit, die ein Browser-Frontend (``web/static/``) bedient:
 
 Die **Stärke** steuern zwei Regler: ``n_simulations`` (MCTS-Denkbudget pro Zug)
 und ``temperature`` (Zug-Zufall), siehe :data:`PRESETS` für die Vorbelegung.
-Partien liegen im Prozess-Speicher (dict, per ``game_id``) – reicht fürs lokale
-Einzelspiel.
 
 Start:  ``python scripts/serve.py``  (oder ``uvicorn web.server:app``)
 """

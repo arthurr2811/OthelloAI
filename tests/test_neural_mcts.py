@@ -54,7 +54,7 @@ def test_temperature_zero_is_argmax_visits():
     state = GameState.initial(size=8)
     mcts = NeuralMCTS(_net(), MCTSConfig(n_simulations=60), seed=3)
     root = mcts.run(state)
-    pi = mcts._visit_distribution(root, temperature=0.0)
+    pi = mcts.visit_distribution(root, temperature=0.0)
     assert pi.sum() == pytest.approx(1.0)
     assert np.count_nonzero(pi) == 1
     best_move = max(root.children.items(), key=lambda kv: kv[1].N)[0]
@@ -104,7 +104,7 @@ def test_works_on_6x6():
     mcts = NeuralMCTS(_net(size=6), MCTSConfig(n_simulations=40), seed=7)
     root = mcts.run(state)
     assert root.N == 40
-    pi = mcts._visit_distribution(root, temperature=1.0)
+    pi = mcts.visit_distribution(root, temperature=1.0)
     assert pi.shape == (num_actions(6),)
     assert pi.sum() == pytest.approx(1.0)
 
@@ -132,7 +132,7 @@ def test_backprop_sign_convention():
     child = _Node(root.state.apply(root.state.legal_moves()[0]), parent=root, mover=1, prior=1.0)
     root.children[0] = child
     # value ist aus Sicht von child.state.current_player (Weiß) = +1 (Weiß gewinnt).
-    mcts._backprop(child, value=1.0)
+    backprop(child, value=1.0)
     assert child.N == 1 and root.N == 1
     assert child.W == -1.0            # aus Schwarz-Sicht (mover) eine Niederlage
     assert root.W == 0.0             # Wurzel hat keinen mover

@@ -257,8 +257,8 @@ function updateCounts() {
       if (boardModel[r][c] === 1) b++;
       else if (boardModel[r][c] === -1) w++;
     }
-  el.countBlack.textContent = b;
-  el.countWhite.textContent = w;
+  el.countBlack.textContent = b.toString();
+  el.countWhite.textContent = w.toString();
 }
 
 /* ---------- Animation der Züge ---------- */
@@ -490,7 +490,7 @@ function abortGame() {
 
 function onPrimary() {
   if (running) abortGame();
-  else newGame();
+  else void newGame();
 }
 
 async function sendMove(move) {
@@ -535,7 +535,7 @@ async function sendMove(move) {
 function onCellClick(r, c) {
   if (busy || !current || !current.human_turn) return;
   if (!humanLegal.has(r * size + c)) return;
-  sendMove([r, c]);
+  void sendMove([r, c]);
 }
 
 /* ---------- Verdrahtung ---------- */

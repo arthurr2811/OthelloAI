@@ -9,8 +9,7 @@ Aufruf:
     python scripts/train.py --resume checkpoints/best.pt   # Lauf fortsetzen
     python scripts/train.py --smoke                        # Wiring-Check (Minuten)
 
-Checkpoints und Logs landen unter ``checkpoints/`` bzw. ``logs/`` in der
-Projektwurzel – unabhängig davon, aus welchem Verzeichnis gestartet wird.
+Checkpoints und Logs landen unter ``checkpoints/`` bzw. ``logs/``
 """
 
 from __future__ import annotations

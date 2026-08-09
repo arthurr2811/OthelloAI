@@ -1,6 +1,6 @@
 """Reines UCT-MCTS mit Random-Rollouts – ohne neuronales Netz.
 
-Wert-Konvention (wichtig, weil hier gern Vorzeichenfehler passieren):
+Wert-Konvention (wichtig, Vorzeichen beachten!):
     Jeder Knoten speichert ``W`` als Summe von Rollout-Ergebnissen aus Sicht des
     Spielers, der den Zug *in diesen Knoten hinein* gemacht hat (``mover``).
     Ergebnis je Rollout in [0, 1]: Sieg=1, Remis=0.5, Niederlage=0.
@@ -93,7 +93,7 @@ class MCTSAgent(Agent):
         # 3. Rollout: von hier zufällig bis zum Spielende.
         winner = self._rollout(node.state)
 
-        # 4. Backpropagation: Ergebnis den Pfad hinauf tragen.
+        # 4. Backpropagation
         while node is not None:
             node.N += 1
             if node.mover is not None:

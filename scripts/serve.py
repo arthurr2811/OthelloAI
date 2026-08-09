@@ -1,11 +1,10 @@
 """Startet das lokale Web-Frontend zum Selberspielen gegen das trainierte Netz.
 
-    python scripts/serve.py                       # models/best.pt, http://127.0.0.1:8000
+    python scripts/serve.py
     python scripts/serve.py --checkpoint checkpoints/iter_100.pt
     python scripts/serve.py --host 0.0.0.0 --port 8080
 
-Relative Checkpoint-Pfade gelten ab der Projektwurzel – der Aufrufort ist also
-egal. Danach im Browser http://127.0.0.1:8000 öffnen.
+Im Browser http://127.0.0.1:8000 öffnen.
 """
 
 from __future__ import annotations

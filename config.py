@@ -13,12 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-# Projektwurzel (Verzeichnis dieser Datei). Alle relativen Pfade in den Configs
-# und Skripten werden dagegen aufgelöst – damit landen Checkpoints und Logs
-# immer an derselben Stelle, egal aus welchem Verzeichnis gestartet wird.
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-# Das ausgelieferte, fertig trainierte Netz (im Repo eingecheckt).
+# Das ausgelieferte, fertig trainierte Netz
 DEFAULT_CHECKPOINT = "models/best.pt"
 
 

@@ -1,21 +1,7 @@
-"""Absolute Stärke eines trainierten Checkpoints messen (Schritt 2.5, Ergänzung).
+"""Misst stärke des aktuiellen checkpoints gegen einreines MCTS
 
-Der Trainings-Loop loggt nur die Quote gegen **Greedy** – und Greedy ist bei
-Othello so schwach, dass ein brauchbares Netz dort sofort an die Decke stößt
-(100 %), also kein Signal mehr liefert. Dieses Skript stellt einen *nicht
-sättigenden* Maßstab daneben: das Netz gegen **reines MCTS** (ohne Netz) bei
-mehreren Simulationsbudgets, plus optional gegen ein **früheres Ich** (anderer
-Checkpoint). Damit lässt sich sagen, *wie* stark das Modell wirklich ist und ob
-es über die Iterationen zugelegt hat.
-
-Beispiele:
-    python scripts/measure.py                                   # models/best.pt vs Random/Greedy/MCTS
-    python scripts/measure.py --checkpoint checkpoints/iter_100.pt --games 60
-    python scripts/measure.py --mcts-sims 50,150,400 --sims 64
-    python scripts/measure.py --vs-checkpoint checkpoints/iter_005.pt  # Fortschritt ggü. früh
-
-Die Netz-Seite wird gebündelt ausgewertet (parallele Arena), die Gegner ziehen
-inline – ein Match von 60 Partien dauert daher nur Sekunden.
+Performance improvment: Die Netz-Seite wird gebündelt ausgewertet (parallele Arena), die Gegner ziehen
+inline
 """
 
 from __future__ import annotations

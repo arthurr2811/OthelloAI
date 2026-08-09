@@ -1,16 +1,10 @@
 """Multiprocessing-Self-Play: Partien über die CPU-Kerne verteilen.
 
 Der gebündelte Self-Play (:mod:`az.selfplay_parallel`) ist Single-Core: MCTS-Baum
-und Engine laufen in *einem* Python-Prozess, und genau diese CPU-Arbeit ist der
-Engpass – nicht die GPU. Hier teilen sich ``n_workers`` Prozesse die Partien
+und Engine laufen in *einem* Python-Prozess, Engpass. Hier teilen sich ``n_workers`` Prozesse die Partien
 einer Iteration; jeder Prozess fährt intern denselben gebündelten Scheduler mit
 eigener GPU-Inferenz (eigener CUDA-Kontext). Die GPU verkraftet mehrere kleine
 Inferenz-Ströme problemlos.
-
-Der Pool ist **persistent** (ein Prozess-Start pro Trainingslauf, nicht pro
-Iteration), weil jeder Spawn auf Windows torch + CUDA neu initialisiert
-(mehrere Sekunden). Die aktuellen Netz-Gewichte wandern pro Auftrag als
-CPU-``state_dict`` zu den Workern.
 """
 
 from __future__ import annotations

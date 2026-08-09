@@ -1,7 +1,6 @@
 """Baseline-Bots: RandomAgent und GreedyAgent.
 
-Beide dienen als Messlatte für stärkere Agenten (MCTS, AlphaZero). Greedy soll
-Random deutlich schlagen – das ist der Sanity-Check in Schritt 1.4.
+Beide dienen als Messlatte für stärkere Agenten (MCTS, AlphaZero).
 """
 
 from __future__ import annotations
@@ -26,12 +25,7 @@ class RandomAgent(Agent):
 
 
 class GreedyAgent(Agent):
-    """Wählt den Zug, der die meisten gegnerischen Steine umdreht.
-
-    Kurzsichtig (nur ein Halbzug tief), aber deutlich besser als Zufall.
-    Gleichstände werden zufällig aufgelöst, damit keine systematische
-    Feld-Verzerrung entsteht.
-    """
+    """Wählt den Zug, der die meisten gegnerischen Steine umdreht."""
 
     name = "Greedy"
 

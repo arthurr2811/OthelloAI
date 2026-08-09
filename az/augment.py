@@ -6,9 +6,7 @@ exakt die gedrehte/gespiegelte Policy und denselben Value. Jedes Self-Play-Sampl
 lässt sich damit fast gratis verachtfachen (großer Sample-Efficiency-Gewinn).
 
 Die 8 Transformationen: Rotationen um 0/90/180/270 Grad, jeweils optional mit
-einer Spiegelung an der Spaltenachse. Board-Ebenen ``(C, S, S)`` und das
-Policy-Gitter ``(S, S)`` werden mit **derselben** geometrischen Operation
-transformiert; der Pass-Eintrag (letzter Policy-Index) bleibt unverändert.
+einer Spiegelung an der Spaltenachse.
 """
 
 from __future__ import annotations

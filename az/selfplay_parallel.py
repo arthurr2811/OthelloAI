@@ -4,7 +4,7 @@ Naives Self-Play spielt eine Partie nach der anderen und bewertet in jeder
 MCTS-Simulation *ein* Brett mit Batch-Größe 1. Bei einem kleinen Netz dominiert
 dann der CPU↔GPU-Sync – die GPU wartet die meiste Zeit.
 
-Hier laufen viele Partien **gleichzeitig**. Der Scheduler treibt in jeder Runde
+Daher Optimierung: Hier laufen viele Partien **gleichzeitig**. Der Scheduler treibt in jeder Runde
 jede aktive Partie bis genau zu dem Punkt, an dem sie eine Netz-Bewertung braucht
 (ein Blatt im Suchbaum), sammelt diese Blätter über *alle* Partien ein und wertet
 sie in **einem** Forward-Pass aus (:func:`az.mcts.evaluate_batch`).
@@ -79,11 +79,11 @@ class _Worker:
                 self._finish_move()
                 continue
 
-            leaf = self.mcts._select_leaf(self.root)
+            leaf = self.mcts.select_leaf(self.root)
             self.sims_done += 1
             if leaf.state.is_terminal():
                 # Terminale Blätter brauchen kein Netz – direkt zurückpropagieren.
-                self.mcts._backprop(leaf, self.mcts._terminal_value(leaf.state))
+                self.mcts.backprop(leaf, self.mcts.terminal_value(leaf.state))
                 continue
             self.pending = leaf
             return leaf.state
@@ -92,11 +92,11 @@ class _Worker:
         """Speist die Bewertung des zuletzt gemeldeten Blatts zurück."""
         node = self.pending
         assert node is not None
-        self.mcts._expand_with_priors(node, priors)
+        self.mcts.expand_with_priors(node, priors)
         # Wurzel-Rauschen erst nach der Expansion mischen (wie im sequenziellen run).
         if node.parent is None and self.mcts.add_noise:
-            self.mcts._add_dirichlet_noise(node)
-        self.mcts._backprop(node, value)
+            self.mcts.add_dirichlet_noise(node)
+        self.mcts.backprop(node, value)
         self.pending = None
 
     # --- interne Ablaufsteuerung ---
@@ -133,11 +133,11 @@ class _Worker:
     def _finish_move(self) -> None:
         """Schließt die Suche für den aktuellen Zug ab: Sample sichern, Zug spielen."""
         assert self.root is not None and self.state is not None
-        policy_target = NeuralMCTS._visit_distribution(self.root, temperature=1.0)
+        policy_target = NeuralMCTS.visit_distribution(self.root, temperature=1.0)
         self.history.append((encode_state(self.state), policy_target, self.state.current_player))
 
         temperature = 1.0 if self.move_count < self.config.temperature_moves else 0.0
-        pi = NeuralMCTS._visit_distribution(self.root, temperature)
+        pi = NeuralMCTS.visit_distribution(self.root, temperature)
         if temperature == 0:
             index = int(np.argmax(pi))
         else:

@@ -3,15 +3,6 @@
 Unterschied zu :mod:`agents.mcts` (reines UCT): Statt Random-Rollouts bewertet
 das Netz jede neu expandierte Stellung direkt (Value), und die Policy-Priors
 lenken die Suche (PUCT statt UCB1).
-
-Wert-Konvention (Vorzeichen ist hier die Hauptfehlerquelle):
-    Das Netz liefert ``value`` aus Sicht des Spielers **am Zug** in der bewerteten
-    Stellung. Jeder Knoten speichert ``W`` aus Sicht seines ``mover`` – also des
-    Spielers, der den Zug *in diesen Knoten hinein* gemacht hat. ``Q = W / N`` ist
-    damit der erwartete Ausgang in ``[-1, 1]`` für den, der den Zug wählte – genau
-    das, was die PUCT-Selektion am Elternknoten maximieren will. Beim Backprop
-    wird das Vorzeichen pro Ebene gekippt, weil sich der Spieler am Zug abwechselt
-    (auch bei PASS wechselt ``current_player``).
 """
 
 from __future__ import annotations
@@ -57,6 +48,21 @@ class _Node:
         return self.W / self.N if self.N > 0 else 0.0
 
 
+def backprop(leaf: _Node, value: float) -> None:
+    """Trägt ``value`` (Sicht: ``leaf.current_player``) den Pfad hinauf.
+
+    ``W`` jedes Knotens ist aus Sicht seines ``mover`` = Gegner des Spielers am
+    Zug in diesem Knoten, daher ``-value``. Pro Ebene kippt das Vorzeichen.
+    """
+    node: _Node | None = leaf
+    while node is not None:
+        node.N += 1
+        if node.mover is not None:
+            node.W += -value
+        value = -value
+        node = node.parent
+
+
 class NeuralMCTS:
     """PUCT-Suche über ein :class:`OthelloNet`.
 
@@ -78,17 +84,17 @@ class NeuralMCTS:
         self.config = config
         self.device = torch.device(device) if device is not None else next(net.parameters()).device
         self.add_noise = add_noise
-        self._rng = np.random.default_rng(seed)
+        self.rng = np.random.default_rng(seed)
 
-    # --- Öffentliche API ---
+    # --- Komplette Suche ---
 
     def run(self, state: GameState) -> _Node:
         """Führt das Simulationsbudget aus und gibt den Wurzelknoten zurück."""
         root = _Node(state, parent=None, mover=None, prior=1.0)
         value = self._expand_and_evaluate(root)
-        self._backprop(root, value)  # Wurzel-Evaluation zählt als erste Simulation
+        backprop(root, value)  # Wurzel-Evaluation zählt als erste Simulation
         if self.add_noise:
-            self._add_dirichlet_noise(root)
+            self.add_dirichlet_noise(root)
         for _ in range(self.config.n_simulations - 1):
             self._simulate(root)
         return root
@@ -101,7 +107,7 @@ class NeuralMCTS:
         """
         tau = self.config.temperature if temperature is None else temperature
         root = self.run(state)
-        return self._visit_distribution(root, tau)
+        return self.visit_distribution(root, tau)
 
     def select_move(self, state: GameState, temperature: float | None = None) -> Move:
         """Wählt einen Zug: bei ``tau>0`` gesampelt, bei ``tau=0`` der beste."""
@@ -110,36 +116,36 @@ class NeuralMCTS:
             return options[0]
         tau = self.config.temperature if temperature is None else temperature
         root = self.run(state)
-        pi = self._visit_distribution(root, tau)
+        pi = self.visit_distribution(root, tau)
         size = state.size
         if tau == 0:
             index = int(np.argmax(pi))
         else:
-            index = int(self._rng.choice(len(pi), p=pi))
+            index = int(self.rng.choice(len(pi), p=pi))
         return index_to_move(index, size)
 
-    # --- Suche ---
+    # --- Einzelschritte der Suche (auch von den parallelen Schedulern getrieben) ---
 
     def _simulate(self, root: _Node) -> None:
         # 1. Selection: PUCT-Abstieg zu einem Blatt.
-        node = self._select_leaf(root)
+        node = self.select_leaf(root)
 
         # 2. Auswertung des Blatts: terminal -> echtes Ergebnis, sonst Netz.
         if node.state.is_terminal():
-            value = self._terminal_value(node.state)
+            value = self.terminal_value(node.state)
         else:
             value = self._expand_and_evaluate(node)
 
         # 3. Backpropagation.
-        self._backprop(node, value)
+        backprop(node, value)
 
-    def _select_leaf(self, root: _Node) -> _Node:
+    def select_leaf(self, root: _Node) -> _Node:
         """PUCT-Abstieg durch expandierte Knoten bis zu einem Blatt.
 
         Blatt = noch nicht expandierter Knoten (braucht eine Netz-Bewertung) oder
         eine terminale Stellung. Diese Trennung von Auswahl und Bewertung ist die
         Basis fürs gebündelte Self-Play: der Scheduler sammelt die Blätter vieler
-        Partien und bewertet sie in *einem* Forward-Pass.
+        Partien und bewertet sie in *einem* Forward-Pass (efficiency).
         """
         node = root
         while node.is_expanded and node.children:
@@ -167,11 +173,11 @@ class NeuralMCTS:
         Rückgabe: Value aus Sicht des Spielers am Zug in ``node.state``.
         """
         priors, value = self._evaluate(node.state)
-        self._expand_with_priors(node, priors)
+        self.expand_with_priors(node, priors)
         return value
 
     @staticmethod
-    def _expand_with_priors(node: _Node, priors: np.ndarray) -> None:
+    def expand_with_priors(node: _Node, priors: np.ndarray) -> None:
         """Legt alle legalen Kinder von ``node`` mit ihren Policy-Priors an.
         """
         mover = node.state.current_player
@@ -180,20 +186,6 @@ class NeuralMCTS:
             child_state = node.state.apply(move)
             node.children[move] = _Node(child_state, parent=node, mover=mover, prior=float(priors[idx]))
         node.is_expanded = True
-
-    def _backprop(self, leaf: _Node, value: float) -> None:
-        """Trägt ``value`` (Sicht: ``leaf.current_player``) den Pfad hinauf.
-
-        ``W`` jedes Knotens ist aus Sicht seines ``mover`` = Gegner des Spielers am
-        Zug in diesem Knoten, daher ``-value``. Pro Ebene kippt das Vorzeichen.
-        """
-        node: _Node | None = leaf
-        while node is not None:
-            node.N += 1
-            if node.mover is not None:
-                node.W += -value
-            value = -value
-            node = node.parent
 
     # --- Netz-Auswertung ---
 
@@ -227,7 +219,7 @@ class NeuralMCTS:
         return exp / total
 
     @staticmethod
-    def _terminal_value(state: GameState) -> float:
+    def terminal_value(state: GameState) -> float:
         """Echtes Partie-Ergebnis aus Sicht des Spielers am Zug in ``state``."""
         w = state.winner()
         if w == EMPTY:
@@ -236,19 +228,19 @@ class NeuralMCTS:
 
     # --- Wurzel-Rauschen & Zugverteilung ---
 
-    def _add_dirichlet_noise(self, root: _Node) -> None:
+    def add_dirichlet_noise(self, root: _Node) -> None:
         """Mischt Dirichlet-Rauschen in die Wurzel-Priors (Self-Play-Exploration)."""
         moves = list(root.children.keys())
         if not moves:
             return
         eps = self.config.dirichlet_epsilon
-        noise = self._rng.dirichlet([self.config.dirichlet_alpha] * len(moves))
+        noise = self.rng.dirichlet([self.config.dirichlet_alpha] * len(moves))
         for move, n in zip(moves, noise):
             child = root.children[move]
             child.prior = (1 - eps) * child.prior + eps * float(n)
 
     @staticmethod
-    def _visit_distribution(root: _Node, temperature: float) -> np.ndarray:
+    def visit_distribution(root: _Node, temperature: float) -> np.ndarray:
         """Normalisierte Visit-Counts über alle Aktionen, mit Temperatur."""
         size = root.state.size
         counts = np.zeros(num_actions(size), dtype=np.float64)

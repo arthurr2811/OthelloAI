@@ -13,6 +13,7 @@ einer Bitboard-Umstellung Numba-Kernel (siehe unten).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeAlias
 
 import numpy as np
 
@@ -43,7 +44,7 @@ _SYMBOLS = {BLACK: "X", WHITE: "O", EMPTY: "."}
 PASS = "PASS"
 
 # Ein Zug ist entweder ein Feld (Zeile, Spalte) oder PASS.
-Move = "tuple[int, int] | str"
+Move: TypeAlias = tuple[int, int] | str
 
 
 def initial_board(size: int = 8) -> np.ndarray:

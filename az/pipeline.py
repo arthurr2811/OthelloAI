@@ -20,6 +20,7 @@ import csv
 import time
 from dataclasses import asdict
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import torch
@@ -71,7 +72,7 @@ class _IterationLogger:
 
 
 def _init_best_net(
-    config: RunConfig, device: torch.device, resume: str | Path | None, log
+    config: RunConfig, device: torch.device, resume: str | Path | None, log: Callable[..., None]
 ) -> tuple[OthelloNet, int]:
     """Lädt das Bestmodell (Resume) oder legt ein frisches an. Rückgabe: (net, start_iteration)."""
     checkpoint_dir = project_path(config.checkpoint_dir)
@@ -93,12 +94,9 @@ def run_training(
     *,
     resume: str | Path | None = None,
     device: str | torch.device | None = None,
-    log=print,
+    log: Callable[..., None] = print,
 ) -> OthelloNet:
     """Führt den vollständigen Trainings-Loop aus und gibt das finale Bestmodell zurück.
-
-    Achtung: langlaufend. Für einen Wiring-Check eine ``RunConfig`` mit winzigen
-    Werten (wenige Iterationen/Sims/Partien) übergeben.
     """
     device = _select_device(device)
     log(f"Device: {device} | Brett {config.board_size}x{config.board_size} | "

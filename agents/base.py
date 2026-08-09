@@ -20,10 +20,7 @@ class Agent(ABC):
     @abstractmethod
     def select_move(self, state: GameState) -> Move:
         """Wählt einen Zug aus ``state.legal_moves()``.
-
-        Der aufrufende Code garantiert, dass der State nicht terminal ist – die
-        Optionsliste ist also nie leer (mindestens PASS).
         """
 
-    def __str__(self) -> str:  # praktisch fürs Logging in der Arena
+    def __str__(self) -> str:
         return self.name

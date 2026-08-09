@@ -18,8 +18,6 @@ def play_game(black_agent: Agent, white_agent: Agent, size: int = 8) -> int:
     ``black_agent`` zieht als Schwarz (beginnt), ``white_agent`` als Weiß.
     """
     state = GameState.initial(size)
-    # Obergrenze als Sicherheitsnetz gegen Endlosschleifen (kann nie greifen,
-    # da Othello-Partien endlich sind – dient nur der Robustheit).
     max_plies = size * size * 4
     for _ in range(max_plies):
         if state.is_terminal():
@@ -28,7 +26,6 @@ def play_game(black_agent: Agent, white_agent: Agent, size: int = 8) -> int:
         move = agent.select_move(state)
         state = state.apply(move)
     else:
-        # Schleife lief ohne `break` durch -> nicht-terminal nach max_plies.
         raise RuntimeError(
             f"ACHTUNG: {max_plies} Halbzüge überschritten ohne Spielende (Endlosschleife)!"
             f"Aktueller Spieler: {state.current_player}, "

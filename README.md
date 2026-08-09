@@ -1,12 +1,10 @@
 # Othello AI
 
-Eine AlphaZero-artige Othello-KI (8×8), lokal auf GPU trainiert – ohne
-menschliche Partien, ohne einprogrammiertes Othello-Wissen. Dazu ein
+Eine AlphaZero-inspirierte Othello-KI (8×8), lokal auf GPU trainiert. Dazu ein
 Web-Frontend zum Selberspielen mit einstellbarer Spielstärke.
 
 Das fertig trainierte Netz liegt als [`models/best.pt`](models/best.pt) im Repo –
-zum Spielen ist kein eigenes Training nötig. Wie das Projekt entstanden ist
-(Phasen, Zwischenergebnisse, Entscheidungen): [`docs/plan.md`](docs/plan.md).
+zum Spielen ist kein eigenes Training nötig.
 
 ## Setup
 
@@ -36,9 +34,7 @@ Bewertungsleiste zeigt live die Einschätzung des Value-Heads.
 
 Ein FastAPI-Backend (`web/server.py`) lädt den Checkpoint und liefert die
 KI-Züge (PUCT-MCTS + Netz); das Frontend (`web/static/`) ist reines HTML/CSS/JS
-ohne Build-Schritt. Ein anderes Netz spielt man mit
-`--checkpoint checkpoints/iter_100.pt` (relative Pfade gelten ab der
-Projektwurzel).
+ohne Build-Schritt.
 
 ## Projektstruktur
 
@@ -55,19 +51,50 @@ config.py  # zentrale Trainingskonfiguration (die Defaults = der echte 8x8-Lauf)
 
 ## Wie die KI funktioniert
 
-**MCTS als Grundgerüst.** Statt den Spielbaum vollständig zu durchrechnen,
-untersucht Monte-Carlo-Baumsuche gezielt die vielversprechendsten Züge und
-steckt Rechenzeit dorthin, wo sie sich lohnt. Ein reines MCTS mit
-Zufalls-Rollouts (in `agents/mcts.py`) schlägt die einfachen Baselines bereits
-deutlich – der Beweis, dass Engine und Suche korrekt zusammenspielen, ganz ohne ML.
+**Wie bringt man einem Computer so ein Spiel bei?**
+Der naive Ansatz: lass den Computer vom aktuellen stand aus jeglichen zukünftig möglichen Zug ausrechnen,
+wähle den besten. Aber Othello hat auf 8×8 zu viele
+Stellungen, um den Baum (auf einem durchschnittlichen Computer) vollständig durchzurechnen.
+Die Idee von Monte-Carlo-Baumsuche (MCTS): Statt jeden Zug gleich tief zu prüfen, steckt man
+die Rechenzeit gezielt in die vielversprechendsten Äste. Der Grundbaustein dafür
+ist der Rollout: Nimm die aktuelle Stellung, spiel von dort für einen bestimmten
+Zug rein zufällig bis zum Spielende weiter, und schau, ob du gewonnen hättest.
+Einmal reicht das natürlich nicht – aber wiederholt man das ein paar tausend Mal pro
+Zug und zählt, wie oft man dabei gewonnen hat, bekommt man ein überraschend gutes
+Gefühl dafür, wie gut ein Zug wirklich ist. Im Baum heißt die Stellung, ab der so
+ein Zufalls-Rollout losläuft, das „Blatt". Jede Simulation läuft
+von der Wurzel (der aktuellen Stellung) zu einem Blatt, bewertet die Stellung dort
+per Rollout und trägt das Ergebnis zurück den Baum hoch – Züge, die sich bisher gut
+geschlagen haben, werden öfter angeschaut, schlechte schnell abgehakt. Ein reines
+MCTS mit Zufalls-Rollouts (`agents/mcts.py`) schlägt die einfachen Baselines
+bereits deutlich – der Beweis, dass Engine und Suche korrekt zusammenspielen,
+ganz ohne NN.
 
-**AlphaZero = MCTS + gelerntes Netz.** Ein kleines ResNet (`az/net.py`) ersetzt
-die zwei schwächsten Stellen der reinen Suche:
+**Die Schwäche von reinem MCTS:** Die Zufalls-Rollouts sind teuer (tausende
+Partien pro Zug) und ziemlich dumm – ein Zufallsspieler hat kein
+Stellungsverständnis, verschenkt also Rechenzeit auf offensichtlich schlechte
+Fortsetzungen. Genau hier setzt AlphaZero an: Statt am Blatt zufällig bis zum
+Spielende weiterzuspielen, fragt man ein neuronales Netz nach seiner
+Einschätzung. Das neuronale Netz wird so trainiert: Man zeigt ihm sehr viele Spielstellungen
+zusammen mit dem tatsächlichen Ausgang der Partie und passt die Gewichte
+Schritt für Schritt so an, dass seine Vorhersage („wer gewinnt von hier aus")
+immer öfter stimmt (mehr dazu unten bei Self-Play/Training). Ist es einmal
+trainiert, liefert es diese Einschätzung – „welcher Spieler steht hier
+besser" – für jede neue, auch nie gesehene Stellung in einem einzigen
+Rechendurchlauf (Forward-Pass) statt über hunderte durchgespielte
+Rollout-Partien. Und statt jeden Zug an der Wurzel gleich wahrscheinlich
+anzuschauen, sagt einem das (genauso trainierte) Netz vorab, welche Züge
+überhaupt vielversprechend aussehen.
+
+**AlphaZero = MCTS + gelerntes Netz.** Ein kleines ResNet (`az/net.py`) hat
+dafür zwei Köpfe, die genau diese zwei Schwachstellen der reinen Suche ersetzen:
 
 - **Value-Kopf** statt Zufalls-Rollouts: „Wie gut steht der Spieler am Zug?" –
   eine gelernte Bewertung in `[-1, 1]` statt tausender Zufallspartien.
 - **Policy-Kopf** statt blinder Zugauswahl: „Welche Züge sind vielversprechend?" –
-  Priors, die die Suche sofort in gute Richtungen lenken (PUCT-Formel).
+  Priors, die die Suche sofort in gute Richtungen lenken (PUCT-Formel: Priorität
+  bekommen Züge mit hoher Netz-Einschätzung, die aber noch wenig besucht wurden –
+  so wird sowohl Aussichtsreiches vertieft als auch Neues nicht komplett ignoriert).
 
 Die Eingabe sind 3 Ebenen (eigene Steine, gegnerische Steine, wer am Zug ist),
 immer aus Sicht des Ziehenden.
@@ -86,6 +113,17 @@ immer aus Sicht des Ziehenden.
 
 Die Rückkopplung „stärkere Suche → bessere Daten → stärkeres Netz → stärkere
 Suche" schaukelt sich von Zufallsspiel zu echtem Stellungsverständnis hoch.
+
+**Und wie zieht die KI dann im echten Spiel?**: Für jeden Zug startet PUCT-MCTS an der aktuellen Stellung und läuft
+so viele Simulationen, wie das Denkbudget (`n_simulations`) erlaubt – geführt
+von Policy-Priors und Value-Bewertungen des Netzes, kein Rauschen mehr (das
+brauchte nur das Self-Play für Vielfalt). Am Ende hat jeder mögliche Zug an
+der Wurzel eine Besuchsanzahl; die wird zur Zugwahl herangezogen. Bei
+Temperatur 0 gewinnt schlicht der meistbesuchte Zug – die stärkste, aber
+vorhersehbarste Wahl. Bei Temperatur > 0 wird stattdessen proportional zu den
+Besuchszahlen gesampelt – so lassen
+sich die Schwierigkeitsstufen im Frontend einstellen (siehe `PRESETS` in
+`web/server.py`).
 
 ## Training ausführen
 
