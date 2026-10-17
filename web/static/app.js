@@ -494,6 +494,7 @@ async function sendMove(move) {
   const myGen = gen;
   busy = true;
   clearHints();               // Board wirkt sofort "committed"
+  el.passBtn.classList.add("invisible");   // gilt nur für den aktuellen Zug
   try {
     // 1) Menschzug anwenden und *sofort* zeigen (die KI denkt hier noch nicht).
     let res = await game.move(move);

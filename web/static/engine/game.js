@@ -19,7 +19,7 @@ import {
 export const CONFIG = {
   sim_min: 1,
   sim_max: 800,
-  sim_warn: 500,   // ab hier Hinweis im Frontend: im Browser dauert ein Zug dann lange
+  sim_warn: 250,   // ab hier Hinweis im Frontend: im Browser dauert ein Zug dann lange
   temp_min: 0,
   temp_max: 3,
   default: "medium",
