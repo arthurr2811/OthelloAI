@@ -17,7 +17,7 @@ import numpy as np
 import torch
 
 from az.encoding import index_to_move
-from az.mcts import NeuralMCTS, _Node, evaluate_batch
+from az.mcts import NeuralMCTS, _Node, backprop, evaluate_batch
 from az.net import OthelloNet
 from config import DEFAULT_MCTS, MCTSConfig
 from othello.board import BLACK, EMPTY, WHITE, GameState
@@ -134,7 +134,7 @@ class _Worker:
             leaf = mcts.select_leaf(self.root)
             self.sims_done += 1
             if leaf.state.is_terminal():
-                mcts.backprop(leaf, mcts.terminal_value(leaf.state))
+                backprop(leaf, mcts.terminal_value(leaf.state))
                 continue
             self.pending = leaf
             return self.current, leaf.state
@@ -144,7 +144,7 @@ class _Worker:
         node = self.pending
         assert node is not None and self.current is not None
         self.current.mcts.expand_with_priors(node, priors)
-        self.current.mcts.backprop(node, value)
+        backprop(node, value)
         self.pending = None
 
     # --- interne Ablaufsteuerung ---

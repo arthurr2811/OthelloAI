@@ -16,7 +16,7 @@ import numpy as np
 
 from az.augment import augment
 from az.encoding import encode_state, index_to_move
-from az.mcts import NeuralMCTS, _Node, evaluate_batch
+from az.mcts import NeuralMCTS, _Node, backprop, evaluate_batch
 from az.net import OthelloNet
 from az.replay import ReplayBuffer, Sample
 from config import DEFAULT_SELFPLAY, MCTSConfig, SelfPlayConfig
@@ -83,7 +83,7 @@ class _Worker:
             self.sims_done += 1
             if leaf.state.is_terminal():
                 # Terminale Blätter brauchen kein Netz – direkt zurückpropagieren.
-                self.mcts.backprop(leaf, self.mcts.terminal_value(leaf.state))
+                backprop(leaf, self.mcts.terminal_value(leaf.state))
                 continue
             self.pending = leaf
             return leaf.state
@@ -96,7 +96,7 @@ class _Worker:
         # Wurzel-Rauschen erst nach der Expansion mischen (wie im sequenziellen run).
         if node.parent is None and self.mcts.add_noise:
             self.mcts.add_dirichlet_noise(node)
-        self.mcts.backprop(node, value)
+        backprop(node, value)
         self.pending = None
 
     # --- interne Ablaufsteuerung ---

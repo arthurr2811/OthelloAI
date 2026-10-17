@@ -12,7 +12,7 @@ import pytest
 import torch
 
 from az.encoding import index_to_move, move_to_index, num_actions
-from az.mcts import NeuralMCTS, NeuralMCTSAgent, _Node
+from az.mcts import NeuralMCTS, NeuralMCTSAgent, _Node, backprop
 from az.net import OthelloNet
 from config import MCTSConfig, NetConfig
 from othello.board import PASS, GameState
