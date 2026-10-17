@@ -125,6 +125,11 @@ h1 { margin: 0; font-size: 2rem; letter-spacing: 1px; }
   pointer-events: none;
 }
 
+/* Das "?" der Siegchance steht mittig: Tooltip zentrieren, sonst ragt er auf
+   schmalen Bildschirmen rechts aus dem Fenster. */
+.eval-caption .info:hover::after { left: 50%; transform: translateX(-50%); }
+.eval-caption .info:hover::before { left: 50%; transform: translateX(-50%); }
+
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -345,6 +350,8 @@ footer { text-align: center; margin-top: 16px; min-height: 1.4em; }
 .thinking { color: var(--accent); font-size: 0.9rem; }
 
 .hidden { display: none !important; }
+/* Unsichtbar, aber Platz behalten (z. B. Passen-Button: sonst springt das Layout). */
+.invisible { visibility: hidden; }
 
 .status.win { color: #4ade80; font-weight: 600; }
 .status.lose { color: #f87171; font-weight: 600; }

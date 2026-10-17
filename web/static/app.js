@@ -363,7 +363,7 @@ function finishTurn() {
   }
 
   if (current.game_over) running = false;
-  el.passBtn.classList.toggle("hidden", !current.must_pass);
+  el.passBtn.classList.toggle("invisible", !current.must_pass);
   updateSettingsLock();   // bei Partieende wieder freigeben
   refreshButton();
   updateEval();
@@ -435,7 +435,7 @@ async function newGame() {
   updateSettingsLock();        // Einstellungen für die Dauer der Partie sperren
   el.status.className = "status";
   el.status.textContent = "Neue Partie…";
-  el.passBtn.classList.add("hidden");
+  el.passBtn.classList.add("invisible");
   try {
     setThinking(true);
     el.status.textContent = "KI-Modell wird geladen…";
@@ -476,7 +476,7 @@ function abortGame() {
   humanLegal = new Set();
   setThinking(false);
   if (cells.length) { clearHints(); clearLastAI(); }
-  el.passBtn.classList.add("hidden");
+  el.passBtn.classList.add("invisible");
   el.evalWrap.classList.add("hidden");
   updateSettingsLock();
   refreshButton();
