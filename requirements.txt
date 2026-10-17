@@ -12,3 +12,8 @@ fastapi>=0.115
 uvicorn[standard]>=0.30
 torch
 pydantic
+
+# Nur für scripts/export_onnx.py (Netz -> web/static/model.onnx fürs Browser-Frontend)
+onnx>=1.17
+onnxscript>=0.5      # torch.export-basierter ONNX-Exporter
+onnxruntime>=1.20    # Gegenprobe PyTorch vs. ONNX
