@@ -8,10 +8,7 @@
 numpy>=2.0
 numba>=0.61          # JIT für die Engine-Hotpaths (othello/_kernels.py)
 pytest>=8.0
-fastapi>=0.115
-uvicorn[standard]>=0.30
 torch
-pydantic
 
 # Nur für scripts/export_onnx.py (Netz -> web/static/model.onnx fürs Browser-Frontend)
 onnx>=1.17

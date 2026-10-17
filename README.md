@@ -3,7 +3,9 @@
 Eine AlphaZero-inspirierte Othello-KI (8×8), lokal auf GPU trainiert. Dazu ein
 Web-Frontend zum Selberspielen mit einstellbarer Spielstärke.
 
-Das fertig trainierte Netz liegt als [`models/best.pt`](models/best.pt) im Repo –
+**Online spielen:** <https://arthurr2811.github.io/OthelloAI/> – die KI läuft
+komplett im Browser, keine Installation nötig.
+
 zum Spielen ist kein eigenes Training nötig.
 
 ## Setup
@@ -18,23 +20,38 @@ pip install torch --index-url https://download.pytorch.org/whl/cu128
 
 python scripts/check_env.py   # erwartet: CUDA verfügbar = True
 pytest
+node --test "tests/js/*.test.mjs"   # JS-Engine/-MCTS vs. Python (Node >= 22, keine npm-Pakete)
 ```
 
-Zum Spielen genügt eine CPU; nur das Training braucht die GPU sinnvollerweise.
+Zum Spielen genügt ein Browser; nur das Training braucht die GPU sinnvollerweise.
 
-## Selber spielen
+## Lokal spielen
 
 ```bash
 python scripts/serve.py
 ```
 
-Dann [http://127.0.0.1:8000](http://127.0.0.1:8000) im Browser öffnen. Farbe und
-Spielstärke (Denkbudget + Zug-Zufall) sind im Frontend einstellbar; eine
-Bewertungsleiste zeigt live die Einschätzung des Value-Heads.
+Dann [http://127.0.0.1:8000](http://127.0.0.1:8000) im Browser öffnen. Farbe und Spielstärke (Denkbudget +
+Zug-Zufall) sind im Frontend einstellbar; eine Bewertungsleiste zeigt live die
+Einschätzung des Value-Heads.
 
-Ein FastAPI-Backend (`web/server.py`) lädt den Checkpoint und liefert die
-KI-Züge (PUCT-MCTS + Netz); das Frontend (`web/static/`) ist reines HTML/CSS/JS
-ohne Build-Schritt.
+Es gibt kein Backend: Das Frontend (`web/static/`) ist reines HTML/CSS/JS ohne
+Build-Schritt, `serve.py` liefert nur die Dateien aus. Die KI rechnet im Browser:
+
+- `engine/othello.js` und `engine/mcts.js` sind 1:1-Ports der Python-Engine und
+  der PUCT-MCTS. Die JS-Tests (`tests/js/`) prüfen sie gegen Fixtures aus der
+  Python-Implementierung (`scripts/gen_js_fixtures.py`) – bis hin zu identischen
+  Visit-Counts.
+- Das Netz läuft als ONNX-Modell mit [onnxruntime-web](https://onnxruntime.ai/)
+  (WASM) in einem Web Worker (`engine/worker.js`), damit die Oberfläche während
+  der Suche flüssig bleibt.
+
+Nach einem neuen Training das Netz neu exportieren, sonst spielt das Frontend
+weiter mit dem alten:
+
+```bash
+python scripts/export_onnx.py   # models/best.pt -> web/static/model.onnx, inkl. Gegenprobe vs. PyTorch
+```
 
 ## Projektstruktur
 
@@ -42,10 +59,11 @@ ohne Build-Schritt.
 othello/   # Spiel-Engine (reine Logik, kein ML) + Numba-Kernel für die Hotpaths
 agents/    # Referenzgegner: Random, Greedy, reines MCTS
 az/        # AlphaZero: Netz, PUCT-MCTS, Self-Play, Training, Evaluation, Pipeline
-web/       # FastAPI-Backend (server.py) + statisches Frontend (static/)
-scripts/   # train.py (Training), measure.py (Stärke messen), serve.py (Frontend), check_env.py
+web/       # statisches Frontend (static/): UI + KI im Browser (engine/), model.onnx
+scripts/   # train.py (Training), measure.py (Stärke messen), serve.py (Frontend lokal),
+           # export_onnx.py (Netz -> ONNX), gen_js_fixtures.py (JS-Testdaten), check_env.py
 models/    # das ausgelieferte, fertig trainierte Netz (best.pt)
-tests/     # pytest-Suite (Engine, Suche, Pipeline, Kernel-Äquivalenz)
+tests/     # pytest-Suite (Engine, Suche, Pipeline, Kernel-Äquivalenz) + js/ (Node-Tests der JS-Engine)
 config.py  # zentrale Trainingskonfiguration (die Defaults = der echte 8x8-Lauf)
 ```
 
@@ -122,8 +140,8 @@ der Wurzel eine Besuchsanzahl; die wird zur Zugwahl herangezogen. Bei
 Temperatur 0 gewinnt schlicht der meistbesuchte Zug – die stärkste, aber
 vorhersehbarste Wahl. Bei Temperatur > 0 wird stattdessen proportional zu den
 Besuchszahlen gesampelt – so lassen
-sich die Schwierigkeitsstufen im Frontend einstellen (siehe `PRESETS` in
-`web/server.py`).
+sich die Schwierigkeitsstufen im Frontend einstellen (siehe `CONFIG.presets` in
+`web/static/engine/game.js`).
 
 ## Training ausführen
 
