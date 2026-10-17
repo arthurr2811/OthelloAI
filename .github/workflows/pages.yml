@@ -1,0 +1,47 @@
+# Veröffentlicht das Browser-Frontend (web/static/) auf GitHub Pages.
+# Vorher laufen die
+# JS-Tests (Engine + MCTS vs. Python-Fixtures), damit keine kaputte KI online geht.
+#
+# Einmalig nötig: Repo-Settings -> Pages -> Source "GitHub Actions".
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # manuell über den Actions-Tab auslösbar
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nur ein Deployment gleichzeitig; laufende werden nicht abgebrochen.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: node --test "tests/js/*.test.mjs"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/static
+      - id: deployment
+        uses: actions/deploy-pages@v4
