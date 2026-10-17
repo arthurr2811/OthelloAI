@@ -1,0 +1,6 @@
+# Binärdateien: kein Zeilenende-Umbau, kein Text-Diff
+*.onnx binary
+*.pt binary
+
+# Generierte Test-Fixtures (scripts/gen_js_fixtures.py): kein Diff-Rauschen
+tests/js/fixtures/*.json -diff
