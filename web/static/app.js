@@ -1,10 +1,14 @@
-"use strict";
+// Die KI läuft komplett im Browser: Netz (onnxruntime-web) + MCTS in einem Web
+// Worker (engine/worker.js), die Partie-Verwaltung in engine/game.js.
+import { EngineClient } from "./engine/client.js";
+import { CONFIG, Game } from "./engine/game.js";
 
 const el = {
   board: document.getElementById("board"),
   presets: document.getElementById("presets"),
   sims: document.getElementById("sims"),
   simsVal: document.getElementById("sims-val"),
+  simsWarn: document.getElementById("sims-warn"),
   temp: document.getElementById("temp"),
   tempVal: document.getElementById("temp-val"),
   speed: document.getElementById("speed"),
@@ -44,8 +48,9 @@ function applyAnimVars() {
   el.board.style.setProperty("--flip-dur", `${scaled(FLIP_DUR)}ms`);
 }
 
-let gameId = null;
-let current = null;        // letzter (autoritativer) Serverzustand
+const engine = new EngineClient();   // lädt das Modell sofort im Hintergrund
+let game = null;           // laufende Partie (engine/game.js)
+let current = null;        // letzter (autoritativer) Spielzustand
 let busy = false;          // blockiert Eingaben während Animation/KI-Zug
 let running = false;       // läuft gerade eine Partie? (steuert Sperre + Button)
 let gen = 0;               // Generationszähler: invalidiert laufende Abläufe bei Abbruch
@@ -105,24 +110,10 @@ function toggleSound() {
   if (soundOn) { ac(); sfx.place(); }   // kurzer Bestätigungston + AudioContext wecken
 }
 
-async function api(path, opts) {
-  const res = await fetch(path, {
-    method: opts && opts.body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
-  if (!res.ok) {
-    let msg = res.statusText;
-    try { msg = (await res.json()).detail || msg; } catch (_) {}
-    throw new Error(msg);
-  }
-  return res.json();
-}
-
 /* ---------- Einstellungen / Presets ---------- */
 
-async function loadConfig() {
-  const cfg = await api("/api/config");
+function loadConfig() {
+  const cfg = CONFIG;
   presets = cfg.presets;
   el.sims.min = cfg.sim_min;
   el.sims.max = cfg.sim_max;
@@ -152,6 +143,7 @@ function applyPreset(p) {
 
 function syncSliderLabels() {
   el.simsVal.textContent = el.sims.value;
+  el.simsWarn.classList.toggle("hidden", Number(el.sims.value) <= CONFIG.sim_warn);
   el.tempVal.textContent = Number(el.temp.value).toFixed(1);
 }
 
@@ -335,7 +327,7 @@ function clearHints() {
 }
 
 function syncBoard() {
-  // Lokales Modell an den autoritativen Serverzustand angleichen (korrigiert
+  // Lokales Modell an den autoritativen Spielzustand angleichen (korrigiert
   // etwaige Drift).
   for (let r = 0; r < size; r++)
     for (let c = 0; c < size; c++) {
@@ -425,7 +417,7 @@ function updateEval() {
       : current.winner === "black" ? "Schwarz gewinnt"
       : "Weiß gewinnt";
   } else {
-    el.evalCaption.textContent = "KI-Bewertung";
+    el.evalCaption.textContent = "Siegchance";
   }
 }
 
@@ -446,17 +438,20 @@ async function newGame() {
   el.passBtn.classList.add("hidden");
   try {
     setThinking(true);
-    const res = await api("/api/new_game", {
-      body: JSON.stringify({
-        human_color: el.color.value,
-        n_simulations: Number(el.sims.value),
-        temperature: Number(el.temp.value),
-      }),
+    el.status.textContent = "KI-Modell wird geladen…";
+    await engine.ready;          // beim ersten Mal: Modell + onnxruntime laden
+    if (myGen !== gen) return;
+    el.status.textContent = "Neue Partie…";
+    const g = new Game(engine, {
+      humanColor: el.color.value,
+      nSimulations: Number(el.sims.value),
+      temperature: Number(el.temp.value),
     });
+    const res = await g.start();
     if (myGen !== gen) return;   // während des Ladens abgebrochen
     setThinking(false);
     current = res;
-    gameId = res.game_id;
+    game = g;
     buildGrid(res.board_size);
     await animateIntro();
     if (myGen !== gen) return;
@@ -472,10 +467,11 @@ async function newGame() {
 
 // Laufende Partie abbrechen (ohne neue zu starten): entsperrt die Einstellungen.
 function abortGame() {
-  gen++;                        // invalidiert laufende Fetches/Animationen
+  gen++;                        // invalidiert laufende KI-Anfragen/Animationen
+  engine.abort();               // laufende Suche im Worker verwerfen
   running = false;
   busy = false;
-  gameId = null;
+  game = null;
   current = null;
   humanLegal = new Set();
   setThinking(false);
@@ -494,15 +490,13 @@ function onPrimary() {
 }
 
 async function sendMove(move) {
-  if (busy || !gameId) return;
+  if (busy || !game) return;
   const myGen = gen;
   busy = true;
   clearHints();               // Board wirkt sofort "committed"
   try {
-    // 1) Menschzug anwenden und *sofort* zeigen (Server denkt hier noch nicht).
-    let res = await api("/api/move", {
-      body: JSON.stringify({ game_id: gameId, move: move }),
-    });
+    // 1) Menschzug anwenden und *sofort* zeigen (die KI denkt hier noch nicht).
+    let res = await game.move(move);
     if (myGen !== gen) return;   // Partie zwischenzeitlich abgebrochen
     current = res;
     await animateSteps(res.steps || []);
@@ -513,9 +507,7 @@ async function sendMove(move) {
     if (!current.game_over && !current.human_turn) {
       updateStatus();          // "KI ist am Zug…"
       setThinking(true);
-      res = await api("/api/ai_move", {
-        body: JSON.stringify({ game_id: gameId }),
-      });
+      res = await game.aiMove();
       if (myGen !== gen) return;
       setThinking(false);
       current = res;
@@ -555,6 +547,7 @@ el.soundToggle.addEventListener("click", toggleSound);
 
 syncSpeed();
 refreshButton();
-loadConfig().catch((e) => {
-  el.status.textContent = "Fehler beim Laden: " + e.message;
+loadConfig();
+engine.ready.catch((e) => {
+  if (!running) el.status.textContent = "Fehler beim Laden der KI: " + e.message;
 });
