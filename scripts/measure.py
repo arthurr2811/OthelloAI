@@ -35,7 +35,7 @@ def _net_player(net, name, sims, temperature_moves, device, seed):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Stärke eines Othello-Checkpoints messen")
+    parser = argparse.ArgumentParser(description="Stärke eines Reversi-Checkpoints messen")
     parser.add_argument("--checkpoint", type=str, default=DEFAULT_CHECKPOINT,
                         help="Pfad zum zu messenden Netz (.pt); relativ = ab Projektwurzel")
     parser.add_argument("--games", type=int, default=40, help="Partien pro Match (gerade Zahl)")

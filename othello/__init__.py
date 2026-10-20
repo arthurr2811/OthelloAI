@@ -1,1 +1,1 @@
-"""Othello-Engine: reine Spiellogik, kein ML."""
+"""Reversi-Engine: reine Spiellogik, kein ML."""

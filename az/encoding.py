@@ -44,7 +44,7 @@ def encode_state(state: GameState) -> np.ndarray:
         1 – gegnerische Steine
         2 – konstante Ebene: 1.0 wenn Schwarz am Zug, sonst 0.0
 
-    Ebene 2 erhält die absolute Farbe (Othello ist nicht farbsymmetrisch: Schwarz
+    Ebene 2 erhält die absolute Farbe (Reversi ist nicht farbsymmetrisch: Schwarz
     beginnt), obwohl die Steine-Ebenen bereits relativ kodiert sind.
     """
     board = state.board

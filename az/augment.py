@@ -1,6 +1,6 @@
 """Dihedral-Symmetrien für Trainingssamples.
 
-Othello ist unter allen 8 Symmetrien des Quadrats äquivariant: Die Flip-Regel
+Reversi ist unter allen 8 Symmetrien des Quadrats äquivariant: Die Flip-Regel
 behandelt alle Richtungen gleich, also hat eine gedrehte/gespiegelte Stellung
 exakt die gedrehte/gespiegelte Policy und denselben Value. Jedes Self-Play-Sample
 lässt sich damit fast gratis verachtfachen (großer Sample-Efficiency-Gewinn).

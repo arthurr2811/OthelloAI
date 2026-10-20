@@ -24,7 +24,7 @@ def test_initial_board_has_four_center_discs():
 
 def test_initial_center_layout_8x8():
     board = initial_board(8)
-    # Diagonal gleichfarbig, Standard-Othello-Startstellung.
+    # Diagonal gleichfarbig, Standard-Reversi-Startstellung.
     assert board[3, 3] == WHITE
     assert board[4, 4] == WHITE
     assert board[3, 4] == BLACK

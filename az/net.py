@@ -1,4 +1,4 @@
-"""AlphaZero-Netz für Othello: gemeinsamer Torso, zwei Köpfe.
+"""AlphaZero-Netz für Reversi: gemeinsamer Torso, zwei Köpfe.
 
 Architektur (klein gehalten, siehe :class:`config.NetConfig`):
     Eingabe (B, 3, S, S)

@@ -1,4 +1,4 @@
-"""Einstiegspunkt für den AlphaZero-Trainings-Loop (8x8-Othello).
+"""Einstiegspunkt für den AlphaZero-Trainings-Loop (8x8-Reversi).
 
 Die Defaults aus :class:`config.RunConfig` sind die echte Trainingskonfiguration;
 alle wichtigen Größen sind per Flag überschreibbar.
@@ -43,7 +43,7 @@ def _smoke_config() -> RunConfig:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AlphaZero-Training (Othello 8x8)")
+    parser = argparse.ArgumentParser(description="AlphaZero-Training (Reversi 8x8)")
     # Default None = Wert aus RunConfig gilt; nur explizit gesetzte Flags überschreiben.
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--games", type=int, default=None,

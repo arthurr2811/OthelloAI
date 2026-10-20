@@ -1,4 +1,4 @@
-"""Zentrale Konfiguration der AlphaZero-Trainingspipeline (8x8-Othello).
+"""Zentrale Konfiguration der AlphaZero-Trainingspipeline (8x8-Reversi).
 
 Alle Defaults sind die *echten* Trainingswerte des 8x8-Laufs – ein Aufruf von
 ``python scripts/train.py`` ohne Flags startet genau diese Konfiguration.

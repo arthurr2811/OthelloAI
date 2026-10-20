@@ -1,4 +1,4 @@
-// Othello-Spiel-Engine fürs Browser-Frontend – 1:1-Port von othello/board.py
+// Reversi-Spiel-Engine fürs Browser-Frontend – 1:1-Port von othello/board.py
 // und encode_state aus az/encoding.py.
 //
 // Konvention wie in Python:

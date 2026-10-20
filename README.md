@@ -1,9 +1,9 @@
-# Othello AI
+# Reversi AI
 
-Eine AlphaZero-inspirierte Othello-KI (8×8), lokal auf GPU trainiert. Dazu ein
+Eine AlphaZero-inspirierte Reversi-KI (8×8), lokal auf GPU trainiert. Dazu ein
 Web-Frontend zum Selberspielen mit einstellbarer Spielstärke.
 
-**Online spielen:** <https://arthurr2811.github.io/OthelloAI/> – die KI läuft
+**Online spielen:** <https://arthurr2811.github.io/ReversiAI/> – die KI läuft
 komplett im Browser, keine Installation nötig.
 
 zum Spielen ist kein eigenes Training nötig.
@@ -71,7 +71,7 @@ config.py  # zentrale Trainingskonfiguration (die Defaults = der echte 8x8-Lauf)
 
 **Wie bringt man einem Computer so ein Spiel bei?**
 Der naive Ansatz: lass den Computer vom aktuellen stand aus jeglichen zukünftig möglichen Zug ausrechnen,
-wähle den besten. Aber Othello hat auf 8×8 zu viele
+wähle den besten. Aber Reversi hat auf 8×8 zu viele
 Stellungen, um den Baum (auf einem durchschnittlichen Computer) vollständig durchzurechnen.
 Die Idee von Monte-Carlo-Baumsuche (MCTS): Statt jeden Zug gleich tief zu prüfen, steckt man
 die Rechenzeit gezielt in die vielversprechendsten Äste. Der Grundbaustein dafür

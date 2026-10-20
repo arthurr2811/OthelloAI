@@ -75,7 +75,7 @@ def test_match_alternates_colors_and_counts_add_up():
 
 
 def test_greedy_beats_random():
-    # Der zentrale Sanity-Check aus dem Plan. Greedy (max Flips) ist bei Othello
+    # Der zentrale Sanity-Check aus dem Plan. Greedy (max Flips) ist bei Reversi
     # nur mäßig stark (~61% gegen Random), daher genug Partien für ein stabiles
     # Ergebnis und eine Schwelle mit Varianz-Puffer.
     greedy = GreedyAgent(seed=0)

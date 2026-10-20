@@ -1,4 +1,4 @@
-"""Board-Repräsentation und Spielzustand für Othello.
+"""Board-Repräsentation und Spielzustand für Reversi.
 
 Konvention:
     +1  = Schwarz (X), zieht zuerst
@@ -48,7 +48,7 @@ Move: TypeAlias = tuple[int, int] | str
 
 
 def initial_board(size: int = 8) -> np.ndarray:
-    """Erzeugt die Othello-Startstellung: vier Steine im Zentrum.
+    """Erzeugt die Reversi-Startstellung: vier Steine im Zentrum.
 
     ``size`` muss gerade und >= 2 sein, damit das Zentrum wohldefiniert ist.
     """
@@ -75,7 +75,7 @@ def board_to_string(board: np.ndarray, current_player: int | None = None) -> str
     """Menschenlesbare Darstellung mit Zeilen-/Spaltenkoordinaten.
 
     Spalten sind mit Buchstaben (a, b, c, ...), Zeilen mit Zahlen (1..N)
-    beschriftet – wie in der Othello-Notation üblich.
+    beschriftet – wie in der Reversi-Notation üblich.
     """
     size = board.shape[0]
     col_labels = "  " + " ".join(chr(ord("a") + c) for c in range(size))

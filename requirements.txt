@@ -1,4 +1,4 @@
-# Othello AI – dependencies
+# Reversi AI – dependencies
 #
 # PyTorch wird NICHT hier gepinnt, weil die RTX 5070 Ti (Blackwell, sm_120)
 # ein CUDA-12.8-Wheel braucht. Install separat:

@@ -217,7 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# --- Othello AI (projektspezifisch) ---
+# --- Reversi AI (projektspezifisch) ---
 # Modell-Checkpoints und Trainingsartefakte
 *.pt
 *.pth
